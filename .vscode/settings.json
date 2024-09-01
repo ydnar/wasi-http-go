@@ -1,0 +1,131 @@
+{
+	// Editor
+	"editor.copyWithSyntaxHighlighting": false,
+	"editor.detectIndentation": false,
+	"editor.formatOnSave": true,
+	"editor.insertSpaces": false,
+	"editor.tabSize": 4,
+	"files.eol": "\n",
+
+	// Files
+	"files.exclude": {
+		"**/.git": true
+	},
+	"files.associations": {
+		"*.yapf": "ini",
+		"Brewfile": "ruby",
+		"Tiltfile": "starlark"
+	},
+	"files.insertFinalNewline": true,
+	"files.watcherExclude": {
+		"**/.git/objects/**": true,
+		"**/.git/subtree-cache/**": true
+	},
+	"files.trimTrailingWhitespace": true,
+
+	// Go
+	"[go]": {
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "explicit"
+		},
+		"editor.snippetSuggestions": "none"
+	},
+	"[go.mod]": {
+		"editor.codeActionsOnSave": {
+			"source.fixAll": "explicit",
+			"source.organizeImports": "explicit"
+		}
+	},
+	"go.useLanguageServer": true,
+	"go.diagnostic.vulncheck": "Imports",
+	"gopls": {
+		"formatting.gofumpt": true,
+		"ui.codelenses": {
+			"generate": true,
+			"gc_details": true
+		},
+		"ui.completion.usePlaceholders": true,
+		"ui.diagnostic.staticcheck": true,
+		"ui.diagnostic.analyses": {
+			"unusedwrite": true,
+			"useany": true
+		},
+		"ui.diagnostic.annotations": {
+			"bounds": true,
+			"escape": true,
+			"nil": true
+		},
+		"ui.semanticTokens": true
+	},
+
+	// JSON
+	"[json]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[jsonc]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+
+	// Make
+	"[makefile]": {
+		"editor.tabSize": 4
+	},
+
+	// Markdown
+	"[markdown]": {
+		"editor.rulers": [80]
+	},
+	"markdown.preview.breaks": true,
+	"markdownlint.config": {
+		"default": true,
+		"MD007": false,
+		"MD010": false,
+		"MD022": false,
+		"MD024": false,
+		"MD032": false
+	},
+
+	// Shell
+	"[shellscript]": {
+		"editor.defaultFormatter": "foxundermoon.shell-format"
+	},
+
+	// WIT
+	"[wit]": {
+		"editor.tabSize": 4,
+		"editor.insertSpaces": false
+	},
+
+	// YAML
+	"[yaml]": {
+		"editor.autoIndent": "keep",
+		"editor.detectIndentation": true,
+		"editor.insertSpaces": true,
+		"editor.tabSize": 2,
+		"editor.quickSuggestions": {
+			"other": true,
+			"comments": false,
+			"strings": true
+		}
+	},
+
+	// GitHub Actions workflow files
+	"[github-actions-workflow]": {
+		"editor.autoIndent": "keep",
+		"editor.detectIndentation": true,
+		"editor.insertSpaces": true,
+		"editor.tabSize": 2,
+		"editor.quickSuggestions": {
+			"other": true,
+			"comments": false,
+			"strings": true
+		}
+	},
+
+	// TOML
+	"evenBetterToml.formatter.alignComments": false,
+	"evenBetterToml.formatter.alignEntries": false,
+	"evenBetterToml.formatter.allowedBlankLines": 2,
+	"evenBetterToml.formatter.columnWidth": 80,
+	"evenBetterToml.formatter.indentEntries": false
+}

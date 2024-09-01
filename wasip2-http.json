@@ -1,0 +1,7 @@
+{
+	"inherits": ["wasip2"],
+	"wit-package": " ",
+	"ignore1": "../../webassembly/wasi-http/wit/",
+	"wit-world": "",
+	"ignore2": "wasi:http/proxy"
+}
