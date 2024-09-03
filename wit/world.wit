@@ -1,0 +1,11 @@
+package go:http@0.2.0;
+
+/// The `go:http/proxy` world implements a strict superset of `wasi:http/proxy`.
+world proxy {
+	include wasi:http/proxy@0.2.0;
+
+	/// The Go standard library requires interfaces missing from `wasi:http/proxy`:
+	/// `wasi:cli/environment` and `wasi:filesystem/imports`.
+	include wasi:filesystem/imports@0.2.0;
+	import wasi:cli/environment@0.2.0;
+}
