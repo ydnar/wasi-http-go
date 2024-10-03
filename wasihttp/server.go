@@ -21,5 +21,13 @@ func init() {
 }
 
 func handleIncomingRequest(req types.IncomingRequest, res types.ResponseOutparam) {
-	panic("wasi:http/incoming-handler@0.2.1#handle")
+	h := defaultHandler
+	if h == nil {
+		h = http.DefaultServeMux
+	}
+
+	// Create fake http.Request and ResponseWriter...
+	w := http.ResponseWriter(nil)
+	r := &http.Request{}
+	h.ServeHTTP(w, r)
 }

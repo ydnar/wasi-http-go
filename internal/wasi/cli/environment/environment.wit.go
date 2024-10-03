@@ -4,7 +4,7 @@
 package environment
 
 import (
-	"github.com/ydnar/wasm-tools-go/cm"
+	"github.com/bytecodealliance/wasm-tools-go/cm"
 )
 
 // GetEnvironment represents the imported function "get-environment".

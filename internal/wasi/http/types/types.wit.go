@@ -8,11 +8,11 @@
 package types
 
 import (
+	"github.com/bytecodealliance/wasm-tools-go/cm"
 	monotonicclock "github.com/ydnar/wasi-http-go/internal/wasi/clocks/monotonic-clock"
 	ioerror "github.com/ydnar/wasi-http-go/internal/wasi/io/error"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/poll"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
-	"github.com/ydnar/wasm-tools-go/cm"
 )
 
 // Method represents the variant "wasi:http/types@0.2.0#method".
@@ -194,6 +194,7 @@ func (self *Scheme) Other() *string {
 //		info-code: option<u16>,
 //	}
 type DNSErrorPayload struct {
+	_        cm.HostLayout
 	Rcode    cm.Option[string]
 	InfoCode cm.Option[uint16]
 }
@@ -207,6 +208,7 @@ type DNSErrorPayload struct {
 //		alert-message: option<string>,
 //	}
 type TLSAlertReceivedPayload struct {
+	_            cm.HostLayout
 	AlertID      cm.Option[uint8]
 	AlertMessage cm.Option[string]
 }
@@ -220,6 +222,7 @@ type TLSAlertReceivedPayload struct {
 //		field-size: option<u32>,
 //	}
 type FieldSizePayload struct {
+	_         cm.HostLayout
 	FieldName cm.Option[string]
 	FieldSize cm.Option[uint32]
 }

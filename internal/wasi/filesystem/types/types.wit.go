@@ -29,10 +29,10 @@
 package types
 
 import (
+	"github.com/bytecodealliance/wasm-tools-go/cm"
 	wallclock "github.com/ydnar/wasi-http-go/internal/wasi/clocks/wall-clock"
 	ioerror "github.com/ydnar/wasi-http-go/internal/wasi/io/error"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
-	"github.com/ydnar/wasm-tools-go/cm"
 )
 
 // FileSize represents the u64 "wasi:filesystem/types@0.2.0#filesize".
@@ -227,6 +227,7 @@ type LinkCount uint64
 //		status-change-timestamp: option<datetime>,
 //	}
 type DescriptorStat struct {
+	_ cm.HostLayout
 	// File type.
 	Type DescriptorType
 
@@ -315,6 +316,7 @@ func (self *NewTimestamp) Timestamp() *wallclock.DateTime {
 //		name: string,
 //	}
 type DirectoryEntry struct {
+	_ cm.HostLayout
 	// The type of the file referred to by this directory entry.
 	Type DescriptorType
 
@@ -593,6 +595,7 @@ func (e Advice) String() string {
 //		upper: u64,
 //	}
 type MetadataHashValue struct {
+	_ cm.HostLayout
 	// 64 bits of a 128-bit hash value.
 	Lower uint64
 
