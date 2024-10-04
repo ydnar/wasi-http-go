@@ -3,6 +3,7 @@ package wasihttp
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
 	incominghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/incoming-handler"
@@ -52,53 +53,24 @@ func optionZero[T any](o cm.Option[T]) T {
 }
 
 func method(m types.Method) string {
-	switch {
-	case m.Connect():
-		return "CONNECT"
-	case m.Delete():
-		return "DELETE"
-	case m.Get():
-		return "GET"
-	case m.Head():
-		return "HEAD"
-	case m.Options():
-		return "OPTIONS"
-	case m.Patch():
-		return "PATCH"
-	case m.Post():
-		return "POST"
-	case m.Put():
-		return "PUT"
-	case m.Trace():
-		return "TRACE"
-	}
 	if o := m.Other(); o != nil {
-		return *o
+		return strings.ToUpper(*o)
 	}
-	return ""
+	return strings.ToUpper(m.String())
 }
 
 func incomingURL(req types.IncomingRequest) *url.URL {
+	s := req.Scheme()
 	return &url.URL{
-		Scheme: scheme(req.Scheme()),
+		Scheme: scheme(s.Value()),
 	}
 }
 
-func scheme(o cm.Option[types.Scheme]) string {
-	if o.None() {
-		return ""
+func scheme(s types.Scheme) string {
+	if o := s.Other(); o != nil {
+		return *o
 	}
-	s := *o.Some()
-	switch {
-	case s.HTTP():
-		return "http"
-	case s.HTTPS():
-		return "https"
-	}
-	if other := s.Other(); other != nil {
-		return *other
-	}
-	return ""
+	return s.String()
 }
 
 func header(fields types.Fields) http.Header {
