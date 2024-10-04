@@ -1,5 +1,7 @@
 github.com/bytecodealliance/wasm-tools-go v0.2.1 h1:0o+zGdbgOcam4ZNA8NPS5Xxl1FV57XTeLerOJy4EVsY=
 github.com/bytecodealliance/wasm-tools-go v0.2.1/go.mod h1:+h2zz8UoMx8l1F1b2pv6LCbZFc85HFQZDQcRdfa4ovs=
+github.com/bytecodealliance/wasm-tools-go v0.2.2 h1:8v9j62caIyz5Jd1Ullvp+Yz7b8qLl7ReIeh9zSUKE2I=
+github.com/bytecodealliance/wasm-tools-go v0.2.2/go.mod h1:+h2zz8UoMx8l1F1b2pv6LCbZFc85HFQZDQcRdfa4ovs=
 github.com/coreos/go-semver v0.3.1 h1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=
 github.com/coreos/go-semver v0.3.1/go.mod h1:irMmmIw/7yzSRPWryHsK7EYSg09caPQL03VsM8rvUec=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

@@ -2,7 +2,7 @@ module github.com/ydnar/wasi-http-go
 
 go 1.23.0
 
-require github.com/bytecodealliance/wasm-tools-go v0.2.1
+require github.com/bytecodealliance/wasm-tools-go v0.2.2
 
 require (
 	github.com/coreos/go-semver v0.3.1 // indirect

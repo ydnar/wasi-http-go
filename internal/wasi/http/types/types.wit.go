@@ -142,6 +142,24 @@ func (self *Method) Other() *string {
 	return cm.Case[string](self, 9)
 }
 
+var stringsMethod = [10]string{
+	"get",
+	"head",
+	"post",
+	"put",
+	"delete",
+	"connect",
+	"options",
+	"trace",
+	"patch",
+	"other",
+}
+
+// String implements [fmt.Stringer], returning the variant case name of v.
+func (v Method) String() string {
+	return stringsMethod[v.Tag()]
+}
+
 // Scheme represents the variant "wasi:http/types@0.2.0#scheme".
 //
 // This type corresponds to HTTP standard Related Schemes.
@@ -183,6 +201,17 @@ func SchemeOther(data string) Scheme {
 // Other returns a non-nil *[string] if [Scheme] represents the variant case "other".
 func (self *Scheme) Other() *string {
 	return cm.Case[string](self, 2)
+}
+
+var stringsScheme = [3]string{
+	"HTTP",
+	"HTTPS",
+	"other",
+}
+
+// String implements [fmt.Stringer], returning the variant case name of v.
+func (v Scheme) String() string {
+	return stringsScheme[v.Tag()]
 }
 
 // DNSErrorPayload represents the record "wasi:http/types@0.2.0#DNS-error-payload".
@@ -693,6 +722,53 @@ func ErrorCodeInternalError(data cm.Option[string]) ErrorCode {
 // InternalError returns a non-nil *[cm.Option[string]] if [ErrorCode] represents the variant case "internal-error".
 func (self *ErrorCode) InternalError() *cm.Option[string] {
 	return cm.Case[cm.Option[string]](self, 38)
+}
+
+var stringsErrorCode = [39]string{
+	"DNS-timeout",
+	"DNS-error",
+	"destination-not-found",
+	"destination-unavailable",
+	"destination-IP-prohibited",
+	"destination-IP-unroutable",
+	"connection-refused",
+	"connection-terminated",
+	"connection-timeout",
+	"connection-read-timeout",
+	"connection-write-timeout",
+	"connection-limit-reached",
+	"TLS-protocol-error",
+	"TLS-certificate-error",
+	"TLS-alert-received",
+	"HTTP-request-denied",
+	"HTTP-request-length-required",
+	"HTTP-request-body-size",
+	"HTTP-request-method-invalid",
+	"HTTP-request-URI-invalid",
+	"HTTP-request-URI-too-long",
+	"HTTP-request-header-section-size",
+	"HTTP-request-header-size",
+	"HTTP-request-trailer-section-size",
+	"HTTP-request-trailer-size",
+	"HTTP-response-incomplete",
+	"HTTP-response-header-section-size",
+	"HTTP-response-header-size",
+	"HTTP-response-body-size",
+	"HTTP-response-trailer-section-size",
+	"HTTP-response-trailer-size",
+	"HTTP-response-transfer-coding",
+	"HTTP-response-content-coding",
+	"HTTP-response-timeout",
+	"HTTP-upgrade-failed",
+	"HTTP-protocol-error",
+	"loop-detected",
+	"configuration-error",
+	"internal-error",
+}
+
+// String implements [fmt.Stringer], returning the variant case name of v.
+func (v ErrorCode) String() string {
+	return stringsErrorCode[v.Tag()]
 }
 
 // HeaderError represents the variant "wasi:http/types@0.2.0#header-error".

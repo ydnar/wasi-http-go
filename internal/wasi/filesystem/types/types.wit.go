@@ -307,6 +307,17 @@ func (self *NewTimestamp) Timestamp() *wallclock.DateTime {
 	return cm.Case[wallclock.DateTime](self, 2)
 }
 
+var stringsNewTimestamp = [3]string{
+	"no-change",
+	"now",
+	"timestamp",
+}
+
+// String implements [fmt.Stringer], returning the variant case name of v.
+func (v NewTimestamp) String() string {
+	return stringsNewTimestamp[v.Tag()]
+}
+
 // DirectoryEntry represents the record "wasi:filesystem/types@0.2.0#directory-entry".
 //
 // A directory entry.
