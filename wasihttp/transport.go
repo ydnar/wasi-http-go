@@ -18,21 +18,21 @@ type Transport struct{}
 //
 // [wasi-http]: https://github.com/webassembly/wasi-http
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	hdrs := ToHeaders(req.Header)
+	hdrs := toHeaders(req.Header)
 
 	outgoingRequest := types.NewOutgoingRequest(hdrs)
 
-	auth := Authority(req)
+	auth := authority(req)
 	// TODO: when should we set the authority to `cm.None`?
 	outgoingRequest.SetAuthority(cm.Some(auth))
 
-	m := ToMethod(req.Method)
+	m := toMethod(req.Method)
 	outgoingRequest.SetMethod(m)
 
-	p := ToPathWithQuery(req)
+	p := path(req)
 	outgoingRequest.SetPathWithQuery(p)
 
-	scheme := ToScheme(req.URL.Scheme)
+	scheme := toScheme(req.URL.Scheme)
 	outgoingRequest.SetScheme(cm.Some(scheme))
 
 	outgoingBody_ := outgoingRequest.Body()
@@ -47,7 +47,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	ToBody(&req.Body, outgoingBody)
+	toBody(&req.Body, outgoingBody)
 
 	// Finalize the request body
 	// TODO: complete the request trailers
@@ -88,7 +88,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	incomingBody := ib.OK()
 
-	response.Body = FromBody(incomingBody)
+	response.Body = fromBody(incomingBody)
 	return response, nil
 }
 

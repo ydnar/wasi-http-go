@@ -10,10 +10,10 @@ import (
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
 )
 
-// Authority returns the Authority of the request from the [http.Request] Host or URL.Host.
+// authority returns the authority of the request from the [http.Request] Host or URL.Host.
 //
 // [http.Request]: https://cs.opensource.google/go/go/+/refs/tags/go1.23.2:src/net/http/request.go;l=240-243
-func Authority(req *http.Request) string {
+func authority(req *http.Request) string {
 	auth := ""
 	if req.Host == "" {
 		auth = req.URL.Host
@@ -23,11 +23,11 @@ func Authority(req *http.Request) string {
 	return auth
 }
 
-// ToHeaders convert the [http.Header] to a wasi-http [types.Fields].
+// toHeaders convert the [http.Header] to a wasi-http [types.Fields].
 //
 // [http.Header]: https://pkg.go.dev/net/http#Header
 // [types.Fields]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L215
-func ToHeaders(headers http.Header) (fields types.Fields) {
+func toHeaders(headers http.Header) (fields types.Fields) {
 	fields = types.NewFields()
 	for k, v := range headers {
 		key := types.FieldKey(k)
@@ -55,12 +55,12 @@ func FromHeaders(fields types.Fields) http.Header {
 	return h
 }
 
-// ToMethod returns the wasi-http [types.ToMethod] from the [http.Request] method.
+// toMethod returns the wasi-http [types.toMethod] from the [http.Request] method.
 // If the method is not a standard HTTP method, it returns a [types.MethodOther].
 //
 // [http.Request]: https://pkg.go.dev/net/http#Request
-// [types.ToMethod]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L11-L22
-func ToMethod(s string) types.Method {
+// [types.toMethod]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L11-L22
+func toMethod(s string) types.Method {
 	switch s {
 	case http.MethodGet:
 		return types.MethodGet()
@@ -88,25 +88,25 @@ func ToMethod(s string) types.Method {
 	}
 }
 
-// ToPathWithQuery returns the path with query from the [http.Request] URL.
+// path returns the path with query from the [http.Request] URL.
 //
 // if both path and query are empty, set it to None
 // [http.Request]: https://pkg.go.dev/net/http#Request
-// [types.ToPathWithQuery]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L350
-func ToPathWithQuery(req *http.Request) cm.Option[string] {
-	path_with_query := req.URL.RequestURI()
-	if path_with_query == "" {
+// [types.path]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L350
+func path(req *http.Request) cm.Option[string] {
+	path := req.URL.RequestURI()
+	if path == "" {
 		return cm.None[string]()
 	}
-	return cm.Some(path_with_query)
+	return cm.Some(path)
 }
 
-// ToScheme returns the wasi-http [types.ToScheme] from the [http.Request] URL.ToScheme.
+// toScheme returns the wasi-http [types.toScheme] from the [http.Request] URL.toScheme.
 // If the scheme is not http or https, it returns a [types.SchemeOther].
 //
 // [http.Request]: https://pkg.go.dev/net/http#Request
-// [types.ToScheme]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L359-L360
-func ToScheme(s string) types.Scheme {
+// [types.toScheme]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L359-L360
+func toScheme(s string) types.Scheme {
 	switch s {
 	case "http":
 		return types.SchemeHTTP()
@@ -118,10 +118,10 @@ func ToScheme(s string) types.Scheme {
 	}
 }
 
-// ToBody writes the io.ReadCloser to the wasi-http [types.ToBody].
+// toBody writes the io.ReadCloser to the wasi-http [types.toBody].
 //
-// [types.ToBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
-func ToBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
+// [types.toBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
+func toBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
 	if body == nil || *body == nil {
 		return nil
 	}
@@ -136,10 +136,10 @@ func ToBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
 	return nil
 }
 
-// FromBody reads the wasi-http [types.IncomingBody] to the io.ReadCloser.
+// fromBody reads the wasi-http [types.IncomingBody] to the io.ReadCloser.
 //
 // [types.IncomingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L397-L427
-func FromBody(body *types.IncomingBody) io.ReadCloser {
+func fromBody(body *types.IncomingBody) io.ReadCloser {
 	stream_ := body.Stream()
 	stream := stream_.OK() // the first call should always return OK
 	return &inputStreamReader{stream: stream, incomingBody: body}
