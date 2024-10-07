@@ -11,16 +11,17 @@ import (
 	wasihttp "github.com/ydnar/wasi-http-go/wasihttp"
 )
 
-func printResponse(r *http.Response) {
+func printResponse(r *http.Response) error {
 	fmt.Printf("Status: %d\n", r.StatusCode)
 	for k, v := range r.Header {
 		fmt.Printf("%s: %s\n", k, v[0])
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 	fmt.Printf("Body: \n%s\n", body)
+	return nil
 }
 
 func main() {
@@ -39,14 +40,22 @@ func main() {
 		panic(err.Error())
 	}
 	defer res.Body.Close()
-	printResponse(res)
+
+	err = printResponse(res)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	res, err = client.Post("https://postman-echo.com/post", "application/json", bytes.NewReader([]byte("{\"foo\": \"bar\"}")))
 	if err != nil {
 		panic(err.Error())
 	}
 	defer res.Body.Close()
-	printResponse(res)
+
+	err = printResponse(res)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	req, err = http.NewRequest("PUT", "http://postman-echo.com/put", bytes.NewReader([]byte("{\"baz\": \"blah\"}")))
 	if err != nil {
@@ -60,5 +69,9 @@ func main() {
 		panic(err.Error())
 	}
 	defer res.Body.Close()
-	printResponse(res)
+
+	err = printResponse(res)
+	if err != nil {
+		panic(err.Error())
+	}
 }
