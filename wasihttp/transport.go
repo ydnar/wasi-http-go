@@ -18,7 +18,7 @@ type Transport struct{}
 //
 // [wasi-http]: https://github.com/webassembly/wasi-http
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	hdrs := toHeaders(req.Header)
+	hdrs := toFields(req.Header)
 
 	outgoingRequest := types.NewOutgoingRequest(hdrs)
 

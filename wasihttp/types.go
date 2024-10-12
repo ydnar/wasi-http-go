@@ -12,23 +12,20 @@ import (
 
 // authority returns the authority of the request from the [http.Request] Host or URL.Host.
 //
-// [http.Request]: https://cs.opensource.google/go/go/+/refs/tags/go1.23.2:src/net/http/request.go;l=240-243
+// Note the description of the Host field: https://cs.opensource.google/go/go/+/refs/tags/go1.23.2:src/net/http/request.go;l=240-243
 func authority(req *http.Request) string {
-	auth := ""
 	if req.Host == "" {
-		auth = req.URL.Host
+		return req.URL.Host
 	} else {
-		auth = req.Host
+		return req.Host
 	}
-	return auth
 }
 
-// toHeaders convert the [http.Header] to a wasi-http [types.Fields].
+// toFields convert the [http.Header] to a wasi-http [types.Fields].
 //
-// [http.Header]: https://pkg.go.dev/net/http#Header
 // [types.Fields]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L215
-func toHeaders(headers http.Header) (fields types.Fields) {
-	fields = types.NewFields()
+func toFields(headers http.Header) types.Fields {
+	fields := types.NewFields()
 	for k, v := range headers {
 		key := types.FieldKey(k)
 		vals := []types.FieldValue{}
@@ -37,12 +34,11 @@ func toHeaders(headers http.Header) (fields types.Fields) {
 		}
 		fields.Set(key, cm.ToList(vals))
 	}
-	return
+	return fields
 }
 
 // FromHeaders convert the wasi-http [types.Fields] to a [http.Header].
 //
-// [http.Header]: https://pkg.go.dev/net/http#Header
 // [types.Fields]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L215
 func FromHeaders(fields types.Fields) http.Header {
 	h := http.Header{}
@@ -58,7 +54,6 @@ func FromHeaders(fields types.Fields) http.Header {
 // toMethod returns the wasi-http [types.toMethod] from the [http.Request] method.
 // If the method is not a standard HTTP method, it returns a [types.MethodOther].
 //
-// [http.Request]: https://pkg.go.dev/net/http#Request
 // [types.toMethod]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L11-L22
 func toMethod(s string) types.Method {
 	switch s {
@@ -91,7 +86,6 @@ func toMethod(s string) types.Method {
 // path returns the path with query from the [http.Request] URL.
 //
 // if both path and query are empty, set it to None
-// [http.Request]: https://pkg.go.dev/net/http#Request
 // [types.path]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L350
 func path(req *http.Request) cm.Option[string] {
 	path := req.URL.RequestURI()
@@ -104,7 +98,6 @@ func path(req *http.Request) cm.Option[string] {
 // toScheme returns the wasi-http [types.toScheme] from the [http.Request] URL.toScheme.
 // If the scheme is not http or https, it returns a [types.SchemeOther].
 //
-// [http.Request]: https://pkg.go.dev/net/http#Request
 // [types.toScheme]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L359-L360
 func toScheme(s string) types.Scheme {
 	switch s {
