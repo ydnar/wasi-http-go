@@ -28,7 +28,7 @@ func toFields(headers http.Header) types.Fields {
 	fields := types.NewFields()
 	for k, v := range headers {
 		key := types.FieldKey(k)
-		vals := []types.FieldValue{}
+		vals := make([]types.FieldValue, 0, len(v))
 		for _, vv := range v {
 			vals = append(vals, types.FieldValue(cm.ToList([]uint8(vv))))
 		}
