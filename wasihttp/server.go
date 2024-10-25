@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	incominghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/incoming-handler"
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
 )
@@ -39,17 +38,9 @@ func incomingRequest(req types.IncomingRequest) *http.Request {
 		URL:    incomingURL(req),
 		// TODO: Proto, ProtoMajor, ProtoMinor
 		Header: header(req.Headers()),
-		Host:   optionZero(req.Authority()),
+		Host:   req.Authority().Value(),
 	}
 	return r
-}
-
-func optionZero[T any](o cm.Option[T]) T {
-	if o.None() {
-		var zero T
-		return zero
-	}
-	return *o.Some()
 }
 
 func method(m types.Method) string {
