@@ -8,10 +8,11 @@ import (
 
 func init() {
 	http.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		panic("/")
+		println(r.URL.String())
 	})
 
 	http.HandleFunc("GET /safe", func(w http.ResponseWriter, r *http.Request) {
+		println(r.URL.String())
 	})
 }
 
