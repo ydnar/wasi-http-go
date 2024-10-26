@@ -47,6 +47,7 @@ func FromHeaders(fields types.Fields) http.Header {
 		k, v := string(field.F0), string(field.F1.Slice())
 		h.Add(k, v)
 	}
+	// TODO: caller should drop this resource
 	fields.ResourceDrop()
 	return h
 }
@@ -111,10 +112,10 @@ func toScheme(s string) types.Scheme {
 	}
 }
 
-// toBody writes the io.ReadCloser to the wasi-http [types.toBody].
+// writeOutgoingBody writes the io.ReadCloser to the wasi-http [types.OutgoingBody].
 //
-// [types.toBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
-func toBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
+// [types.writeOutgoingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
+func writeOutgoingBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
 	if body == nil || *body == nil {
 		return nil
 	}

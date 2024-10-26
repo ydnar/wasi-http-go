@@ -47,7 +47,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	toBody(&req.Body, outgoingBody)
+	writeOutgoingBody(&req.Body, outgoingBody)
 
 	// Finalize the request body
 	// TODO: complete the request trailers
