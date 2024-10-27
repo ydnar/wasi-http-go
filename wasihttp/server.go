@@ -1,7 +1,9 @@
 package wasihttp
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
 	incominghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/incoming-handler"
@@ -31,6 +33,7 @@ func handleIncomingRequest(req types.IncomingRequest, out types.ResponseOutparam
 		return // TODO: log error?
 	}
 	h.ServeHTTP(w, w.req)
+	w.finish()
 }
 
 var _ http.ResponseWriter = &responseWriter{}
@@ -42,13 +45,17 @@ type responseWriter struct {
 	wroteHeader bool
 	status      int // HTTP status code passed to WriteHeader
 
-	res types.OutgoingResponse // valid after outparam is set
+	res    types.OutgoingResponse // valid after headers are sent
+	body   types.OutgoingBody     // valid after res.Body() is called
+	stream types.OutputStream     // valid after body.Stream() is called
+
+	finished bool
 }
 
-func newResponseWriter(req types.IncomingRequest, resout types.ResponseOutparam) (*responseWriter, error) {
+func newResponseWriter(req types.IncomingRequest, out types.ResponseOutparam) (*responseWriter, error) {
 	r, err := incomingRequest(req)
 	w := &responseWriter{
-		out:    resout,
+		out:    out,
 		req:    r,
 		header: make(http.Header),
 	}
@@ -67,14 +74,14 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
-	return 0, nil
+
+	osw := outputStreamWriter{w.stream}
+	return osw.Write(p)
 }
 
 func (w *responseWriter) WriteHeader(code int) {
-	println("responseWriter.WriteHeader")
 	if w.wroteHeader {
 		// TODO: improve logging
-		println("already wrote header")
 		return
 	}
 
@@ -84,12 +91,39 @@ func (w *responseWriter) WriteHeader(code int) {
 	w.status = code
 
 	headers := toFields(w.header)
-	res := types.NewOutgoingResponse(headers)
-	res.SetStatusCode(types.StatusCode(code))
+	w.res = types.NewOutgoingResponse(headers)
+	w.res.SetStatusCode(types.StatusCode(code))
 
-	types.ResponseOutparamSet(w.out, cm.OK[outgoingResult](res))
+	rbody := w.res.Body()
+	w.body = *rbody.OK() // the first call should always return OK
+	types.ResponseOutparamSet(w.out, cm.OK[outgoingResult](w.res))
+
+	rstream := w.body.Write()
+	w.stream = *rstream.OK() // the first call should always return OK
 
 	// TODO
+}
+
+func (w *responseWriter) finish() {
+	if w.finished {
+		return
+	}
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	w.finished = true
+	w.stream.ResourceDrop()
+
+	var trailers cm.Option[types.Trailers]
+
+	// TODO: extract trailers from http.ResponseWriter
+
+	result := types.OutgoingBodyFinish(w.body, trailers)
+	if result.IsErr() {
+		// TODO: improve this
+		fmt.Fprintf(os.Stderr, "wasihttp: outgoing-body-finish: %v", result.Err())
+	}
 }
 
 type outgoingResult = cm.Result[types.ErrorCodeShape, types.OutgoingResponse, types.ErrorCode]

@@ -143,7 +143,7 @@ type outputStreamWriter struct {
 }
 
 func (s *outputStreamWriter) Write(p []byte) (n int, err error) {
-	res := s.OutputStream.BlockingWriteAndFlush(cm.ToList(p))
+	res := s.BlockingWriteAndFlush(cm.ToList(p))
 	if res.IsErr() {
 		return 0, fmt.Errorf("wasihttp: %v", res.Err())
 	}
