@@ -2,6 +2,7 @@ package wasihttp
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
@@ -22,36 +23,27 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	outgoingRequest := types.NewOutgoingRequest(hdrs)
 
-	auth := authority(req)
-	// TODO: when should we set the authority to `cm.None`?
-	outgoingRequest.SetAuthority(cm.Some(auth))
-
-	m := toMethod(req.Method)
-	outgoingRequest.SetMethod(m)
-
-	p := path(req)
-	outgoingRequest.SetPathWithQuery(p)
-
-	scheme := toScheme(req.URL.Scheme)
-	outgoingRequest.SetScheme(cm.Some(scheme))
+	outgoingRequest.SetAuthority(cm.Some(requestAuthority(req))) // TODO: when should this be cm.None?
+	outgoingRequest.SetMethod(toMethod(req.Method))
+	outgoingRequest.SetPathWithQuery(requestPath(req))
+	outgoingRequest.SetScheme(cm.Some(toScheme(req.URL.Scheme))) // TODO: when should this be cm.None?
 
 	outgoingBody_ := outgoingRequest.Body()
-	outgoingBody := outgoingBody_.OK() // the first call should always return OK
+	outgoingBody := *outgoingBody_.OK() // the first call should always return OK
 
 	// TODO: when are [options] used?
 	// [options]: https://github.com/WebAssembly/wasi-http/blob/main/wit/handler.wit#L38-L39
 	futureIncomingResponse_ := outgoinghandler.Handle(outgoingRequest, cm.None[types.RequestOptions]())
-
 	if err := checkError(futureIncomingResponse_); err != nil {
 		// outgoing request is invalid or not allowed to be made
 		return nil, err
 	}
 
-	writeOutgoingBody(&req.Body, outgoingBody)
+	writeOutgoingBody(req.Body, outgoingBody)
 
 	// Finalize the request body
 	// TODO: complete the request trailers
-	finish := types.OutgoingBodyFinish(*outgoingBody, cm.None[types.Fields]())
+	finish := types.OutgoingBodyFinish(outgoingBody, cm.None[types.Fields]())
 	if err := checkError(finish); err != nil {
 		return nil, err
 	}
@@ -63,33 +55,51 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if !poll.Ready() {
 		poll.Block()
 	}
-	responseBody := futureIncomingResponse.Get()
-	if responseBody.None() {
-		return nil, fmt.Errorf("wasihttp: response is None after blocking")
+	someResponse := futureIncomingResponse.Get()
+	if someResponse.None() {
+		return nil, fmt.Errorf("wasihttp: future response is None after blocking")
 	}
 
-	incomingResponse_ := responseBody.Some().OK() // the first call should always return OK
-	if err := checkError(*incomingResponse_); err != nil {
+	responseResult := someResponse.Some().OK() // the first call should always return OK
+	if err := checkError(*responseResult); err != nil {
 		// TODO: what do we do with the HTTP proxy error-code?
 		return nil, err
 	}
-	incomingResponse := incomingResponse_.OK()
-	defer incomingResponse.ResourceDrop()
+	response := *responseResult.OK()
+	defer response.ResourceDrop()
 
-	response := &http.Response{
-		Status:     http.StatusText(int(incomingResponse.Status())),
-		StatusCode: int(incomingResponse.Status()),
-		Header:     FromHeaders(incomingResponse.Headers()),
+	return incomingResponse(response)
+}
+
+func requestAuthority(req *http.Request) string {
+	if req.Host == "" {
+		return req.URL.Host
+	} else {
+		return req.Host
 	}
+}
 
-	ib := incomingResponse.Consume()
-	if err := checkError(ib); err != nil {
-		return nil, err
+func requestPath(req *http.Request) cm.Option[string] {
+	path := req.URL.RequestURI()
+	if path == "" {
+		return cm.None[string]()
 	}
-	incomingBody := ib.OK()
+	return cm.Some(path)
+}
 
-	response.Body = fromBody(incomingBody)
-	return response, nil
+// writeOutgoingBody writes the io.ReadCloser to the wasi-http [types.OutgoingBody].
+//
+// [types.writeOutgoingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
+func writeOutgoingBody(body io.ReadCloser, wasiBody types.OutgoingBody) error {
+	defer body.Close()
+
+	stream_ := wasiBody.Write()
+	stream := stream_.OK() // the first call should always return OK
+	defer stream.ResourceDrop()
+	if _, err := io.Copy(&outputStreamWriter{*stream}, body); err != nil {
+		return fmt.Errorf("wasihttp: %v", err)
+	}
+	return nil
 }
 
 func checkError[Shape, Ok, Err any](result cm.Result[Shape, Ok, Err]) error {
