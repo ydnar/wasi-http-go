@@ -27,7 +27,7 @@ func incomingRequest(req types.IncomingRequest) (*http.Request, error) {
 	}
 
 	r.Body = &incomingReader{
-		IncomingBody: *ib.OK(),
+		body: *ib.OK(),
 		setTrailer: func(h http.Header) {
 			r.Trailer = h
 		},
@@ -72,7 +72,7 @@ func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
 	}
 
 	r.Body = &incomingReader{
-		IncomingBody: *ib.OK(),
+		body: *ib.OK(),
 		setTrailer: func(h http.Header) {
 			r.Trailer = h
 		},
@@ -84,8 +84,8 @@ func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
 var _ io.ReadCloser = &incomingReader{}
 
 type incomingReader struct {
-	types.IncomingBody
-	streams.InputStream
+	body       types.IncomingBody
+	stream     streams.InputStream
 	finished   bool
 	setTrailer func(http.Header)
 }
@@ -96,17 +96,17 @@ func (r *incomingReader) Read(p []byte) (int, error) {
 		return 0, http.ErrBodyReadAfterClose
 	}
 
-	if r.InputStream == cm.ResourceNone {
-		result := r.IncomingBody.Stream()
-		r.InputStream = *result.OK() // the first call should always return OK
+	if r.stream == cm.ResourceNone {
+		result := r.body.Stream()
+		r.stream = *result.OK() // the first call should always return OK
 	}
 
 	// TODO: coordinate with runtime to block on multiple pollables.
-	poll := r.InputStream.Subscribe()
+	poll := r.stream.Subscribe()
 	poll.Block()
 	poll.ResourceDrop()
 
-	readResult := r.InputStream.Read(uint64(len(p)))
+	readResult := r.stream.Read(uint64(len(p)))
 	if err := readResult.Err(); err != nil {
 		if err.Closed() {
 			err2 := r.finish() // read trailers
@@ -132,10 +132,9 @@ func (r *incomingReader) finish() error {
 		return nil
 	}
 	r.finished = true
-	r.InputStream.ResourceDrop()
-	r.InputStream = cm.ResourceNone
+	r.stream.ResourceDrop()
 
-	futureTrailers := types.IncomingBodyFinish(r.IncomingBody)
+	futureTrailers := types.IncomingBodyFinish(r.body)
 	defer futureTrailers.ResourceDrop()
 	p := futureTrailers.Subscribe()
 	p.Block()
