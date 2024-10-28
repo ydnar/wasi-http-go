@@ -19,10 +19,7 @@ type Transport struct{}
 //
 // [wasi-http]: https://github.com/webassembly/wasi-http
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	hdrs := toFields(req.Header)
-
-	outgoingRequest := types.NewOutgoingRequest(hdrs)
-
+	outgoingRequest := types.NewOutgoingRequest(toFields(req.Header))
 	outgoingRequest.SetAuthority(cm.Some(requestAuthority(req))) // TODO: when should this be cm.None?
 	outgoingRequest.SetMethod(toMethod(req.Method))
 	outgoingRequest.SetPathWithQuery(requestPath(req))
@@ -94,9 +91,9 @@ func writeOutgoingBody(body io.ReadCloser, wasiBody types.OutgoingBody) error {
 	defer body.Close()
 
 	stream_ := wasiBody.Write()
-	stream := stream_.OK() // the first call should always return OK
-	defer stream.ResourceDrop()
-	if _, err := io.Copy(&outputStreamWriter{*stream}, body); err != nil {
+	w := newStreamWriter(*stream_.OK())
+	defer w.Close()
+	if _, err := io.Copy(w, body); err != nil {
 		return fmt.Errorf("wasihttp: %v", err)
 	}
 	return nil

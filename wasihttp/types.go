@@ -12,15 +12,6 @@ import (
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
 )
 
-var _ io.ReadCloser = &incomingReader{}
-
-type incomingReader struct {
-	types.IncomingBody
-	streams.InputStream
-	finished   bool
-	setTrailer func(http.Header)
-}
-
 func incomingRequest(req types.IncomingRequest) (*http.Request, error) {
 	r := &http.Request{
 		Method: fromMethod(req.Method()),
@@ -45,6 +36,13 @@ func incomingRequest(req types.IncomingRequest) (*http.Request, error) {
 	return r, nil
 }
 
+func fromMethod(m types.Method) string {
+	if o := m.Other(); o != nil {
+		return strings.ToUpper(*o)
+	}
+	return strings.ToUpper(m.String())
+}
+
 func incomingURL(req types.IncomingRequest) *url.URL {
 	u := &url.URL{
 		Scheme: fromScheme(req.Scheme().Value()),
@@ -52,6 +50,13 @@ func incomingURL(req types.IncomingRequest) *url.URL {
 	}
 	u, _ = u.Parse(req.PathWithQuery().Value())
 	return u
+}
+
+func fromScheme(s types.Scheme) string {
+	if o := s.Other(); o != nil {
+		return strings.ToLower(*o)
+	}
+	return strings.ToLower(s.String())
 }
 
 func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
@@ -76,6 +81,16 @@ func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
 	return r, nil
 }
 
+var _ io.ReadCloser = &incomingReader{}
+
+type incomingReader struct {
+	types.IncomingBody
+	streams.InputStream
+	finished   bool
+	setTrailer func(http.Header)
+}
+
+// TODO: implement buffered reads
 func (r *incomingReader) Read(p []byte) (int, error) {
 	if r.finished {
 		return 0, http.ErrBodyReadAfterClose
@@ -138,16 +153,47 @@ func (r *incomingReader) finish() error {
 	return nil
 }
 
-type outputStreamWriter struct {
-	streams.OutputStream
+type streamWriter struct {
+	stream   streams.OutputStream
+	finished bool
 }
 
-func (s *outputStreamWriter) Write(p []byte) (n int, err error) {
-	res := s.BlockingWriteAndFlush(cm.ToList(p))
+func newStreamWriter(stream types.OutputStream) *streamWriter {
+	return &streamWriter{
+		stream: stream,
+	}
+}
+
+// TODO: buffer writes
+func (w *streamWriter) Write(p []byte) (n int, err error) {
+	res := w.stream.BlockingWriteAndFlush(cm.ToList(p))
 	if res.IsErr() {
 		return 0, fmt.Errorf("wasihttp: %v", res.Err())
 	}
 	return len(p), nil
+}
+
+// TODO: buffer writes
+func (w *streamWriter) Flush() {
+	if w.finished {
+		return
+	}
+	w.stream.Flush()
+}
+
+// Close does not flush output.
+// TODO: is this correct behavior?
+func (w *streamWriter) Close() error {
+	return w.finish()
+}
+
+func (w *streamWriter) finish() error {
+	if w.finished {
+		return nil
+	}
+	w.finished = true
+	w.stream.ResourceDrop()
+	return nil
 }
 
 func toScheme(s string) types.Scheme {
@@ -160,13 +206,6 @@ func toScheme(s string) types.Scheme {
 		// TODO: when should we set the scheme to `cm.None` if `req.URL.Scheme` is empty?
 		return types.SchemeOther(s)
 	}
-}
-
-func fromScheme(s types.Scheme) string {
-	if o := s.Other(); o != nil {
-		return strings.ToLower(*o)
-	}
-	return strings.ToLower(s.String())
 }
 
 func toMethod(s string) types.Method {
@@ -197,11 +236,12 @@ func toMethod(s string) types.Method {
 	}
 }
 
-func fromMethod(m types.Method) string {
-	if o := m.Other(); o != nil {
-		return strings.ToUpper(*o)
+func fromFields(f types.Fields) http.Header {
+	h := http.Header{}
+	for _, e := range f.Entries().Slice() {
+		h.Add(string(e.F0), string(e.F1.Slice()))
 	}
-	return strings.ToUpper(m.String())
+	return h
 }
 
 func toFields(h http.Header) types.Fields {
@@ -214,12 +254,4 @@ func toFields(h http.Header) types.Fields {
 		fields.Set(types.FieldKey(k), cm.ToList(vals))
 	}
 	return fields
-}
-
-func fromFields(f types.Fields) http.Header {
-	h := http.Header{}
-	for _, e := range f.Entries().Slice() {
-		h.Add(string(e.F0), string(e.F1.Slice()))
-	}
-	return h
 }

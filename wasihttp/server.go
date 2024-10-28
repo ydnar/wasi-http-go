@@ -1,6 +1,7 @@
 package wasihttp
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -47,7 +48,7 @@ type responseWriter struct {
 
 	res    types.OutgoingResponse // valid after headers are sent
 	body   types.OutgoingBody     // valid after res.Body() is called
-	stream types.OutputStream     // valid after body.Stream() is called
+	writer *streamWriter          // valid after body.Stream() is called
 
 	finished bool
 }
@@ -71,16 +72,17 @@ func (w *responseWriter) Header() http.Header {
 }
 
 func (w *responseWriter) Write(p []byte) (int, error) {
+	if w.finished {
+		return 0, errors.New("wasihttp: write after close")
+	}
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
-
-	osw := outputStreamWriter{w.stream}
-	return osw.Write(p)
+	return w.writer.Write(p)
 }
 
 func (w *responseWriter) WriteHeader(code int) {
-	if w.wroteHeader {
+	if w.finished || w.wroteHeader {
 		// TODO: improve logging
 		return
 	}
@@ -99,7 +101,7 @@ func (w *responseWriter) WriteHeader(code int) {
 	types.ResponseOutparamSet(w.out, cm.OK[outgoingResult](w.res))
 
 	rstream := w.body.Write()
-	w.stream = *rstream.OK() // the first call should always return OK
+	w.writer = newStreamWriter(*rstream.OK())
 
 	// TODO
 }
@@ -113,11 +115,10 @@ func (w *responseWriter) finish() {
 	}
 
 	w.finished = true
-	w.stream.ResourceDrop()
-
-	var trailers cm.Option[types.Trailers]
+	w.writer.Close()
 
 	// TODO: extract trailers from http.ResponseWriter
+	var trailers cm.Option[types.Trailers]
 
 	result := types.OutgoingBodyFinish(w.body, trailers)
 	if result.IsErr() {
@@ -131,5 +132,6 @@ type outgoingResult = cm.Result[types.ErrorCodeShape, types.OutgoingResponse, ty
 // fatal sets an error code on the response, to allow the implementation
 // to determine how to respond with an HTTP error response.
 func (w *responseWriter) fatal(e types.ErrorCode) {
+	w.finished = true
 	types.ResponseOutparamSet(w.out, cm.Err[outgoingResult](e))
 }
