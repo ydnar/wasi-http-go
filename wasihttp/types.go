@@ -150,24 +150,24 @@ func (r *bodyReader) finish() error {
 }
 
 var (
-	_ io.Writer    = &streamWriter{}
-	_ http.Flusher = &streamWriter{}
+	_ io.Writer    = &bodyWriter{}
+	_ http.Flusher = &bodyWriter{}
 )
 
-type streamWriter struct {
+type bodyWriter struct {
 	stream   streams.OutputStream
 	finished bool
 }
 
-func bodyWriter(body types.OutgoingBody) *streamWriter {
+func newBodyWriter(body types.OutgoingBody) *bodyWriter {
 	res := body.Write()
-	return &streamWriter{
+	return &bodyWriter{
 		stream: *res.OK(),
 	}
 }
 
 // TODO: buffer writes
-func (w *streamWriter) Write(p []byte) (n int, err error) {
+func (w *bodyWriter) Write(p []byte) (n int, err error) {
 	res := w.stream.BlockingWriteAndFlush(cm.ToList(p))
 	if res.IsErr() {
 		return 0, fmt.Errorf("wasihttp: %v", res.Err())
@@ -176,14 +176,14 @@ func (w *streamWriter) Write(p []byte) (n int, err error) {
 }
 
 // TODO: buffer writes
-func (w *streamWriter) Flush() {
+func (w *bodyWriter) Flush() {
 	if w.finished {
 		return
 	}
 	w.stream.Flush()
 }
 
-func (w *streamWriter) finish() error {
+func (w *bodyWriter) finish() error {
 	if w.finished {
 		return nil
 	}

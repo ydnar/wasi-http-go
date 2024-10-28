@@ -48,7 +48,7 @@ type responseWriter struct {
 
 	res    types.OutgoingResponse // valid after headers are sent
 	body   types.OutgoingBody     // valid after res.Body() is called
-	writer *streamWriter          // valid after body.Stream() is called
+	writer *bodyWriter            // valid after body.Stream() is called
 
 	finished bool
 }
