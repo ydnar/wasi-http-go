@@ -74,16 +74,16 @@ func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
 var _ io.ReadCloser = &bodyReader{}
 
 type bodyReader struct {
-	body       types.IncomingBody
-	stream     streams.InputStream
-	finished   bool
-	setTrailer func(http.Header)
+	body     types.IncomingBody
+	stream   streams.InputStream
+	finished bool
+	trailer  func(http.Header)
 }
 
 func newBodyReader(body types.IncomingBody, trailer func(http.Header)) *bodyReader {
 	return &bodyReader{
-		body:       body,
-		setTrailer: trailer,
+		body:    body,
+		trailer: trailer,
 	}
 }
 
@@ -143,7 +143,7 @@ func (r *bodyReader) finish() error {
 	}
 	trailers := trailersResult.OK().Some()
 	if trailers != nil {
-		r.setTrailer(fromFields(*trailers))
+		r.trailer(fromFields(*trailers))
 	}
 
 	return nil
