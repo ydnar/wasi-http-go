@@ -113,7 +113,7 @@ func (w *responseWriter) finish() {
 	}
 
 	w.finished = true
-	w.writer.Close()
+	w.writer.finish()
 
 	// TODO: extract trailers from http.ResponseWriter
 	var trailers cm.Option[types.Trailers]

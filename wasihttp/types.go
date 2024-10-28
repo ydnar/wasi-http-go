@@ -153,8 +153,8 @@ func (r *incomingReader) finish() error {
 }
 
 var (
-	_ io.WriteCloser = &streamWriter{}
-	_ http.Flusher   = &streamWriter{}
+	_ io.Writer    = &streamWriter{}
+	_ http.Flusher = &streamWriter{}
 )
 
 type streamWriter struct {
@@ -186,17 +186,12 @@ func (w *streamWriter) Flush() {
 	w.stream.Flush()
 }
 
-// Close does not flush output.
-// TODO: is this correct behavior?
-func (w *streamWriter) Close() error {
-	return w.finish()
-}
-
 func (w *streamWriter) finish() error {
 	if w.finished {
 		return nil
 	}
 	w.finished = true
+	w.stream.Flush()
 	w.stream.ResourceDrop()
 	return nil
 }
