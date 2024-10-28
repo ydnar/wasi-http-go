@@ -153,14 +153,20 @@ func (r *incomingReader) finish() error {
 	return nil
 }
 
+var (
+	_ io.WriteCloser = &streamWriter{}
+	_ http.Flusher   = &streamWriter{}
+)
+
 type streamWriter struct {
 	stream   streams.OutputStream
 	finished bool
 }
 
-func newStreamWriter(stream types.OutputStream) *streamWriter {
+func bodyWriter(body types.OutgoingBody) *streamWriter {
+	res := body.Write()
 	return &streamWriter{
-		stream: stream,
+		stream: *res.OK(),
 	}
 }
 

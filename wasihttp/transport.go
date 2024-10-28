@@ -89,9 +89,7 @@ func requestPath(req *http.Request) cm.Option[string] {
 // [types.writeOutgoingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
 func writeOutgoingBody(body io.ReadCloser, wasiBody types.OutgoingBody) error {
 	defer body.Close()
-
-	stream_ := wasiBody.Write()
-	w := newStreamWriter(*stream_.OK())
+	w := bodyWriter(wasiBody)
 	defer w.Close()
 	if _, err := io.Copy(w, body); err != nil {
 		return fmt.Errorf("wasihttp: %v", err)
