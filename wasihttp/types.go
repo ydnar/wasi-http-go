@@ -21,17 +21,12 @@ func incomingRequest(req types.IncomingRequest) (*http.Request, error) {
 		Host:   req.Authority().Value(),
 	}
 
-	ib := req.Consume()
-	if err := checkError(ib); err != nil {
+	somebody := req.Consume()
+	if err := checkError(somebody); err != nil {
 		return nil, err
 	}
 
-	r.Body = &incomingReader{
-		body: *ib.OK(),
-		setTrailer: func(h http.Header) {
-			r.Trailer = h
-		},
-	}
+	r.Body = newBodyReader(*somebody.OK(), func(h http.Header) { r.Trailer = h })
 
 	return r, nil
 }
@@ -66,32 +61,34 @@ func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
 		Header:     fromFields(res.Headers()),
 	}
 
-	ib := res.Consume()
-	if err := checkError(ib); err != nil {
+	somebody := res.Consume()
+	if err := checkError(somebody); err != nil {
 		return nil, err
 	}
 
-	r.Body = &incomingReader{
-		body: *ib.OK(),
-		setTrailer: func(h http.Header) {
-			r.Trailer = h
-		},
-	}
+	r.Body = newBodyReader(*somebody.OK(), func(h http.Header) { r.Trailer = h })
 
 	return r, nil
 }
 
-var _ io.ReadCloser = &incomingReader{}
+var _ io.ReadCloser = &bodyReader{}
 
-type incomingReader struct {
+type bodyReader struct {
 	body       types.IncomingBody
 	stream     streams.InputStream
 	finished   bool
 	setTrailer func(http.Header)
 }
 
+func newBodyReader(body types.IncomingBody, trailer func(http.Header)) *bodyReader {
+	return &bodyReader{
+		body:       body,
+		setTrailer: trailer,
+	}
+}
+
 // TODO: implement buffered reads
-func (r *incomingReader) Read(p []byte) (int, error) {
+func (r *bodyReader) Read(p []byte) (int, error) {
 	if r.finished {
 		return 0, http.ErrBodyReadAfterClose
 	}
@@ -123,11 +120,11 @@ func (r *incomingReader) Read(p []byte) (int, error) {
 	return int(readList.Len()), nil
 }
 
-func (r *incomingReader) Close() error {
+func (r *bodyReader) Close() error {
 	return r.finish()
 }
 
-func (r *incomingReader) finish() error {
+func (r *bodyReader) finish() error {
 	if r.finished {
 		return nil
 	}

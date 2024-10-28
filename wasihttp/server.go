@@ -98,7 +98,7 @@ func (w *responseWriter) WriteHeader(code int) {
 
 	rbody := w.res.Body()
 	w.body = *rbody.OK() // the first call should always return OK
-	w.writer = bodyWriter(w.body)
+	w.writer = newBodyWriter(w.body)
 
 	// Consume the response-outparam and outgoing-response.
 	types.ResponseOutparamSet(w.out, cm.OK[outgoingResult](w.res))

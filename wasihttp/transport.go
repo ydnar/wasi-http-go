@@ -41,7 +41,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	body := *somebody.OK() // the first call should always return OK
 
 	// Write request body
-	w := bodyWriter(body)
+	w := newBodyWriter(body)
 	defer w.finish()
 	if _, err := io.Copy(w, req.Body); err != nil {
 		return nil, fmt.Errorf("wasihttp: %v", err)
