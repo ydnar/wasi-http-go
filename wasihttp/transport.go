@@ -99,7 +99,7 @@ func writeOutgoingBody(body io.ReadCloser, wasiBody types.OutgoingBody) error {
 	return nil
 }
 
-func checkError[Shape, Ok, Err any](result cm.Result[Shape, Ok, Err]) error {
+func checkError[Shape, OK, Err any](result cm.Result[Shape, OK, Err]) error {
 	if result.IsErr() {
 		return fmt.Errorf("wasihttp: %v", result.Err())
 	}
