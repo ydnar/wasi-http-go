@@ -12,47 +12,57 @@ import (
 
 var _ http.RoundTripper = &Transport{}
 
-// Transport implements [http.RoundTripper].
 type Transport struct{}
 
 // RoundTrip executes a single HTTP transaction, using [wasi-http] APIs.
 //
 // [wasi-http]: https://github.com/webassembly/wasi-http
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	outgoingRequest := types.NewOutgoingRequest(toFields(req.Header))
-	outgoingRequest.SetAuthority(cm.Some(requestAuthority(req))) // TODO: when should this be cm.None?
-	outgoingRequest.SetMethod(toMethod(req.Method))
-	outgoingRequest.SetPathWithQuery(requestPath(req))
-	outgoingRequest.SetScheme(cm.Some(toScheme(req.URL.Scheme))) // TODO: when should this be cm.None?
+	defer req.Body.Close()
 
-	outgoingBody_ := outgoingRequest.Body()
-	outgoingBody := *outgoingBody_.OK() // the first call should always return OK
+	// TODO: wrap this into a helper func outgoingRequest?
+	r := types.NewOutgoingRequest(toFields(req.Header))
+	r.SetAuthority(cm.Some(requestAuthority(req))) // TODO: when should this be cm.None?
+	r.SetMethod(toMethod(req.Method))
+	r.SetPathWithQuery(requestPath(req))
+	r.SetScheme(cm.Some(toScheme(req.URL.Scheme))) // TODO: when should this be cm.None?
 
 	// TODO: when are [options] used?
 	// [options]: https://github.com/WebAssembly/wasi-http/blob/main/wit/handler.wit#L38-L39
-	futureIncomingResponse_ := outgoinghandler.Handle(outgoingRequest, cm.None[types.RequestOptions]())
-	if err := checkError(futureIncomingResponse_); err != nil {
+	handled := outgoinghandler.Handle(r, cm.None[types.RequestOptions]())
+	if err := checkError(handled); err != nil {
 		// outgoing request is invalid or not allowed to be made
 		return nil, err
 	}
+	incoming := handled.OK()
+	defer incoming.ResourceDrop()
 
-	writeOutgoingBody(req.Body, outgoingBody)
+	somebody := r.Body()
+	body := *somebody.OK() // the first call should always return OK
+
+	// Write request body
+	w := bodyWriter(body)
+	defer w.Close()
+	if _, err := io.Copy(w, req.Body); err != nil {
+		return nil, fmt.Errorf("wasihttp: %v", err)
+	}
+	w.Flush()
 
 	// Finalize the request body
 	// TODO: complete the request trailers
-	finish := types.OutgoingBodyFinish(outgoingBody, cm.None[types.Fields]())
-	if err := checkError(finish); err != nil {
+	finished := types.OutgoingBodyFinish(body, cm.None[types.Fields]())
+	if err := checkError(finished); err != nil {
 		return nil, err
 	}
 
-	futureIncomingResponse := futureIncomingResponse_.OK()
-	defer futureIncomingResponse.ResourceDrop()
-	poll := futureIncomingResponse.Subscribe()
-	defer poll.ResourceDrop()
+	// Wait for response
+	poll := incoming.Subscribe()
 	if !poll.Ready() {
 		poll.Block()
 	}
-	someResponse := futureIncomingResponse.Get()
+	poll.ResourceDrop()
+
+	someResponse := incoming.Get()
 	if someResponse.None() {
 		return nil, fmt.Errorf("wasihttp: future response is None after blocking")
 	}
@@ -62,6 +72,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// TODO: what do we do with the HTTP proxy error-code?
 		return nil, err
 	}
+
 	response := *responseResult.OK()
 	defer response.ResourceDrop()
 
@@ -82,19 +93,6 @@ func requestPath(req *http.Request) cm.Option[string] {
 		return cm.None[string]()
 	}
 	return cm.Some(path)
-}
-
-// writeOutgoingBody writes the io.ReadCloser to the wasi-http [types.OutgoingBody].
-//
-// [types.writeOutgoingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
-func writeOutgoingBody(body io.ReadCloser, wasiBody types.OutgoingBody) error {
-	defer body.Close()
-	w := bodyWriter(wasiBody)
-	defer w.Close()
-	if _, err := io.Copy(w, body); err != nil {
-		return fmt.Errorf("wasihttp: %v", err)
-	}
-	return nil
 }
 
 func checkError[Shape, OK, Err any](result cm.Result[Shape, OK, Err]) error {
