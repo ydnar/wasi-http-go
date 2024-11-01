@@ -75,9 +75,9 @@ var _ io.ReadCloser = &bodyReader{}
 
 type bodyReader struct {
 	body     types.IncomingBody
+	trailer  func(http.Header)
 	stream   streams.InputStream
 	finished bool
-	trailer  func(http.Header)
 }
 
 func newBodyReader(body types.IncomingBody, trailer func(http.Header)) *bodyReader {
@@ -155,19 +155,25 @@ var (
 )
 
 type bodyWriter struct {
+	body     types.OutgoingBody
+	trailer  func() http.Header
 	stream   streams.OutputStream
 	finished bool
 }
 
-func newBodyWriter(body types.OutgoingBody) *bodyWriter {
-	res := body.Write()
+func newBodyWriter(body types.OutgoingBody, trailer func() http.Header) *bodyWriter {
 	return &bodyWriter{
-		stream: *res.OK(),
+		body:    body,
+		trailer: trailer,
 	}
 }
 
 // TODO: buffer writes
 func (w *bodyWriter) Write(p []byte) (n int, err error) {
+	if w.stream == cm.ResourceNone {
+		res := w.body.Write()
+		w.stream = *res.OK()
+	}
 	res := w.stream.BlockingWriteAndFlush(cm.ToList(p))
 	if res.IsErr() {
 		return 0, fmt.Errorf("wasihttp: %v", res.Err())
