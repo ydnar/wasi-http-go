@@ -1,60 +1,229 @@
 package wasihttp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
 )
 
-// authority returns the authority of the request from the [http.Request] Host or URL.Host.
-//
-// Note the description of the Host field: https://cs.opensource.google/go/go/+/refs/tags/go1.23.2:src/net/http/request.go;l=240-243
-func authority(req *http.Request) string {
-	if req.Host == "" {
-		return req.URL.Host
-	} else {
-		return req.Host
+func incomingRequest(req types.IncomingRequest) (*http.Request, error) {
+	r := &http.Request{
+		Method: fromMethod(req.Method()),
+		URL:    incomingURL(req),
+		// TODO: Proto, ProtoMajor, ProtoMinor
+		Header: fromFields(req.Headers()),
+		Host:   req.Authority().Value(),
+	}
+
+	somebody := req.Consume()
+	if err := checkError(somebody); err != nil {
+		return nil, err
+	}
+
+	r.Body = newBodyReader(*somebody.OK(), func(h http.Header) { r.Trailer = h })
+
+	return r, nil
+}
+
+func fromMethod(m types.Method) string {
+	if o := m.Other(); o != nil {
+		return strings.ToUpper(*o)
+	}
+	return strings.ToUpper(m.String())
+}
+
+func incomingURL(req types.IncomingRequest) *url.URL {
+	u := &url.URL{
+		Scheme: fromScheme(req.Scheme().Value()),
+		Host:   req.Authority().Value(),
+	}
+	u, _ = u.Parse(req.PathWithQuery().Value())
+	return u
+}
+
+func fromScheme(s types.Scheme) string {
+	if o := s.Other(); o != nil {
+		return strings.ToLower(*o)
+	}
+	return strings.ToLower(s.String())
+}
+
+func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
+	r := &http.Response{
+		Status:     http.StatusText(int(res.Status())),
+		StatusCode: int(res.Status()),
+		Header:     fromFields(res.Headers()),
+	}
+
+	somebody := res.Consume()
+	if err := checkError(somebody); err != nil {
+		return nil, err
+	}
+
+	r.Body = newBodyReader(*somebody.OK(), func(h http.Header) { r.Trailer = h })
+
+	return r, nil
+}
+
+var _ io.ReadCloser = &bodyReader{}
+
+type bodyReader struct {
+	body     types.IncomingBody
+	trailer  func(http.Header)
+	stream   streams.InputStream
+	finished bool
+}
+
+func newBodyReader(body types.IncomingBody, trailer func(http.Header)) *bodyReader {
+	return &bodyReader{
+		body:    body,
+		trailer: trailer,
 	}
 }
 
-// toFields convert the [http.Header] to a wasi-http [types.Fields].
-//
-// [types.Fields]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L215
-func toFields(headers http.Header) types.Fields {
-	fields := types.NewFields()
-	for k, v := range headers {
-		key := types.FieldKey(k)
-		vals := make([]types.FieldValue, 0, len(v))
-		for _, vv := range v {
-			vals = append(vals, types.FieldValue(cm.ToList([]uint8(vv))))
+// TODO: implement buffered reads
+func (r *bodyReader) Read(p []byte) (int, error) {
+	if r.finished {
+		return 0, http.ErrBodyReadAfterClose
+	}
+
+	if r.stream == cm.ResourceNone {
+		result := r.body.Stream()
+		r.stream = *result.OK() // the first call should always return OK
+	}
+
+	// TODO: coordinate with runtime to block on multiple pollables.
+	poll := r.stream.Subscribe()
+	poll.Block()
+	poll.ResourceDrop()
+
+	readResult := r.stream.Read(uint64(len(p)))
+	if err := readResult.Err(); err != nil {
+		if err.Closed() {
+			err2 := r.finish() // read trailers
+			if err2 != nil {
+				return 0, err2
+			}
+			return 0, io.EOF
 		}
-		fields.Set(key, cm.ToList(vals))
+		return 0, fmt.Errorf("failed to read from InputStream %s", err.LastOperationFailed().ToDebugString())
 	}
-	return fields
+
+	readList := *readResult.OK()
+	copy(p, readList.Slice())
+	return int(readList.Len()), nil
 }
 
-// FromHeaders convert the wasi-http [types.Fields] to a [http.Header].
-//
-// [types.Fields]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L215
-func FromHeaders(fields types.Fields) http.Header {
-	h := http.Header{}
-	es := fields.Entries()
-	for _, field := range es.Slice() {
-		k, v := string(field.F0), string(field.F1.Slice())
-		h.Add(k, v)
-	}
-	fields.ResourceDrop()
-	return h
+func (r *bodyReader) Close() error {
+	return r.finish()
 }
 
-// toMethod returns the wasi-http [types.toMethod] from the [http.Request] method.
-// If the method is not a standard HTTP method, it returns a [types.MethodOther].
-//
-// [types.toMethod]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L11-L22
+func (r *bodyReader) finish() error {
+	if r.finished {
+		return nil
+	}
+	r.finished = true
+	r.stream.ResourceDrop()
+
+	futureTrailers := types.IncomingBodyFinish(r.body)
+	defer futureTrailers.ResourceDrop()
+	p := futureTrailers.Subscribe()
+	p.Block()
+	p.ResourceDrop()
+	someTrailers := futureTrailers.Get()
+	trailersResult := someTrailers.Some().OK() // the first call should always return OK
+	if err := checkError(*trailersResult); err != nil {
+		return err
+	}
+	trailers := trailersResult.OK().Some()
+	if trailers != nil {
+		r.trailer(fromFields(*trailers))
+	}
+
+	return nil
+}
+
+var (
+	_ io.Writer    = &bodyWriter{}
+	_ http.Flusher = &bodyWriter{}
+)
+
+type bodyWriter struct {
+	body     types.OutgoingBody
+	trailer  func() http.Header
+	stream   streams.OutputStream
+	finished bool
+}
+
+// newBodyWriter takes ownership of body, allowing it to be written to.
+// Call finish to send the HTTP trailers provided by the trailer callback.
+func newBodyWriter(body types.OutgoingBody, trailer func() http.Header) *bodyWriter {
+	return &bodyWriter{
+		body:    body,
+		trailer: trailer,
+	}
+}
+
+// TODO: buffer writes
+func (w *bodyWriter) Write(p []byte) (n int, err error) {
+	if w.stream == cm.ResourceNone {
+		res := w.body.Write()
+		w.stream = *res.OK()
+	}
+	res := w.stream.BlockingWriteAndFlush(cm.ToList(p))
+	if res.IsErr() {
+		return 0, fmt.Errorf("wasihttp: %v", res.Err())
+	}
+	return len(p), nil
+}
+
+// TODO: buffer writes
+func (w *bodyWriter) Flush() {
+	if w.finished {
+		return
+	}
+	w.stream.Flush()
+}
+
+func (w *bodyWriter) finish() error {
+	if w.finished {
+		return nil
+	}
+	w.finished = true
+	w.stream.Flush()
+	w.stream.ResourceDrop()
+
+	var trailers cm.Option[types.Trailers]
+	if w.trailer != nil {
+		trailers = toTrailers(w.trailer())
+	}
+	finished := types.OutgoingBodyFinish(w.body, trailers)
+	if finished.IsErr() {
+		return errors.New(finished.Err().String())
+	}
+
+	return nil
+}
+
+func toScheme(s string) types.Scheme {
+	switch s {
+	case "http":
+		return types.SchemeHTTP()
+	case "https":
+		return types.SchemeHTTPS()
+	default:
+		// TODO: when should we set the scheme to `cm.None` if `req.URL.Scheme` is empty?
+		return types.SchemeOther(s)
+	}
+}
+
 func toMethod(s string) types.Method {
 	switch s {
 	case http.MethodGet:
@@ -83,98 +252,29 @@ func toMethod(s string) types.Method {
 	}
 }
 
-// path returns the path with query from the [http.Request] URL.
-//
-// if both path and query are empty, set it to None
-// [types.path]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L350
-func path(req *http.Request) cm.Option[string] {
-	path := req.URL.RequestURI()
-	if path == "" {
-		return cm.None[string]()
+func fromFields(f types.Fields) http.Header {
+	h := http.Header{}
+	for _, e := range f.Entries().Slice() {
+		h.Add(string(e.F0), string(e.F1.Slice()))
 	}
-	return cm.Some(path)
+	return h
 }
 
-// toScheme returns the wasi-http [types.toScheme] from the [http.Request] URL.toScheme.
-// If the scheme is not http or https, it returns a [types.SchemeOther].
-//
-// [types.toScheme]: https://github.com/WebAssembly/wasi-http/blob/main/wit/types.wit#L359-L360
-func toScheme(s string) types.Scheme {
-	switch s {
-	case "http":
-		return types.SchemeHTTP()
-	case "https":
-		return types.SchemeHTTPS()
-	default:
-		// TODO: when should we set the scheme to `cm.None` if `req.URL.Scheme` is empty?
-		return types.SchemeOther(s)
-	}
-}
-
-// toBody writes the io.ReadCloser to the wasi-http [types.toBody].
-//
-// [types.toBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
-func toBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
-	if body == nil || *body == nil {
-		return nil
-	}
-	defer (*body).Close()
-
-	stream_ := wasiBody.Write()
-	stream := stream_.OK() // the first call should always return OK
-	defer stream.ResourceDrop()
-	if _, err := io.Copy(&outStreamWriter{stream: stream}, *body); err != nil {
-		return fmt.Errorf("wasihttp: %v", err)
-	}
-	return nil
-}
-
-// fromBody reads the wasi-http [types.IncomingBody] to the io.ReadCloser.
-//
-// [types.IncomingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L397-L427
-func fromBody(body *types.IncomingBody) io.ReadCloser {
-	stream_ := body.Stream()
-	stream := stream_.OK() // the first call should always return OK
-	return &inputStreamReader{stream: stream, incomingBody: body}
-}
-
-type outStreamWriter struct {
-	stream *streams.OutputStream
-}
-
-func (s *outStreamWriter) Write(p []byte) (n int, err error) {
-	res := s.stream.BlockingWriteAndFlush(cm.ToList(p))
-	if res.IsErr() {
-		return 0, fmt.Errorf("wasihttp: %v", res.Err())
-	}
-	return len(p), nil
-}
-
-type inputStreamReader struct {
-	stream       *streams.InputStream
-	incomingBody *types.IncomingBody
-}
-
-func (r *inputStreamReader) Read(p []byte) (n int, err error) {
-	poll := r.stream.Subscribe()
-	poll.Block()
-	poll.ResourceDrop()
-
-	readResult := r.stream.Read(uint64(len(p)))
-	if err := readResult.Err(); err != nil {
-		if err.Closed() {
-			return 0, io.EOF
+func toFields(h http.Header) types.Fields {
+	fields := types.NewFields()
+	for k, v := range h {
+		vals := make([]types.FieldValue, 0, len(v))
+		for _, vv := range v {
+			vals = append(vals, types.FieldValue(cm.ToList([]uint8(vv))))
 		}
-		return 0, fmt.Errorf("failed to read from InputStream %s", err.LastOperationFailed().ToDebugString())
+		fields.Set(types.FieldKey(k), cm.ToList(vals))
 	}
-
-	readList := *readResult.OK()
-	copy(p, readList.Slice())
-	return int(readList.Len()), nil
+	return fields
 }
 
-func (r *inputStreamReader) Close() error {
-	r.stream.ResourceDrop()
-	r.incomingBody.ResourceDrop()
-	return nil
+func toTrailers(h http.Header) cm.Option[types.Trailers] {
+	if h == nil || len(h) == 0 {
+		return cm.None[types.Trailers]()
+	}
+	return cm.Some(toFields(h))
 }

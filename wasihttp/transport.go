@@ -2,6 +2,7 @@ package wasihttp
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
@@ -11,88 +12,86 @@ import (
 
 var _ http.RoundTripper = &Transport{}
 
-// Transport implements [http.RoundTripper].
 type Transport struct{}
 
 // RoundTrip executes a single HTTP transaction, using [wasi-http] APIs.
 //
 // [wasi-http]: https://github.com/webassembly/wasi-http
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	hdrs := toFields(req.Header)
+	defer req.Body.Close()
 
-	outgoingRequest := types.NewOutgoingRequest(hdrs)
-
-	auth := authority(req)
-	// TODO: when should we set the authority to `cm.None`?
-	outgoingRequest.SetAuthority(cm.Some(auth))
-
-	m := toMethod(req.Method)
-	outgoingRequest.SetMethod(m)
-
-	p := path(req)
-	outgoingRequest.SetPathWithQuery(p)
-
-	scheme := toScheme(req.URL.Scheme)
-	outgoingRequest.SetScheme(cm.Some(scheme))
-
-	outgoingBody_ := outgoingRequest.Body()
-	outgoingBody := outgoingBody_.OK() // the first call should always return OK
+	// TODO: wrap this into a helper func outgoingRequest?
+	r := types.NewOutgoingRequest(toFields(req.Header))
+	r.SetAuthority(cm.Some(requestAuthority(req))) // TODO: when should this be cm.None?
+	r.SetMethod(toMethod(req.Method))
+	r.SetPathWithQuery(requestPath(req))
+	r.SetScheme(cm.Some(toScheme(req.URL.Scheme))) // TODO: when should this be cm.None?
 
 	// TODO: when are [options] used?
 	// [options]: https://github.com/WebAssembly/wasi-http/blob/main/wit/handler.wit#L38-L39
-	futureIncomingResponse_ := outgoinghandler.Handle(outgoingRequest, cm.None[types.RequestOptions]())
-
-	if err := checkError(futureIncomingResponse_); err != nil {
+	handled := outgoinghandler.Handle(r, cm.None[types.RequestOptions]())
+	if err := checkError(handled); err != nil {
 		// outgoing request is invalid or not allowed to be made
 		return nil, err
 	}
+	incoming := handled.OK()
+	defer incoming.ResourceDrop()
 
-	toBody(&req.Body, outgoingBody)
+	somebody := r.Body()
+	body := *somebody.OK() // the first call should always return OK
 
-	// Finalize the request body
-	// TODO: complete the request trailers
-	finish := types.OutgoingBodyFinish(*outgoingBody, cm.None[types.Fields]())
-	if err := checkError(finish); err != nil {
-		return nil, err
+	// Write request body
+	w := newBodyWriter(body, func() http.Header {
+		// TODO: extract request trailers
+		return nil
+	})
+	if _, err := io.Copy(w, req.Body); err != nil {
+		return nil, fmt.Errorf("wasihttp: %v", err)
 	}
+	w.Flush()
+	w.finish()
 
-	futureIncomingResponse := futureIncomingResponse_.OK()
-	defer futureIncomingResponse.ResourceDrop()
-	poll := futureIncomingResponse.Subscribe()
-	defer poll.ResourceDrop()
+	// Wait for response
+	poll := incoming.Subscribe()
 	if !poll.Ready() {
 		poll.Block()
 	}
-	responseBody := futureIncomingResponse.Get()
-	if responseBody.None() {
-		return nil, fmt.Errorf("wasihttp: response is None after blocking")
+	poll.ResourceDrop()
+
+	someResponse := incoming.Get()
+	if someResponse.None() {
+		return nil, fmt.Errorf("wasihttp: future response is None after blocking")
 	}
 
-	incomingResponse_ := responseBody.Some().OK() // the first call should always return OK
-	if err := checkError(*incomingResponse_); err != nil {
+	responseResult := someResponse.Some().OK() // the first call should always return OK
+	if err := checkError(*responseResult); err != nil {
 		// TODO: what do we do with the HTTP proxy error-code?
 		return nil, err
 	}
-	incomingResponse := incomingResponse_.OK()
-	defer incomingResponse.ResourceDrop()
 
-	response := &http.Response{
-		Status:     http.StatusText(int(incomingResponse.Status())),
-		StatusCode: int(incomingResponse.Status()),
-		Header:     FromHeaders(incomingResponse.Headers()),
-	}
+	response := *responseResult.OK()
+	defer response.ResourceDrop()
 
-	ib := incomingResponse.Consume()
-	if err := checkError(ib); err != nil {
-		return nil, err
-	}
-	incomingBody := ib.OK()
-
-	response.Body = fromBody(incomingBody)
-	return response, nil
+	return incomingResponse(response)
 }
 
-func checkError[Shape, Ok, Err any](result cm.Result[Shape, Ok, Err]) error {
+func requestAuthority(req *http.Request) string {
+	if req.Host == "" {
+		return req.URL.Host
+	} else {
+		return req.Host
+	}
+}
+
+func requestPath(req *http.Request) cm.Option[string] {
+	path := req.URL.RequestURI()
+	if path == "" {
+		return cm.None[string]()
+	}
+	return cm.Some(path)
+}
+
+func checkError[Shape, OK, Err any](result cm.Result[Shape, OK, Err]) error {
 	if result.IsErr() {
 		return fmt.Errorf("wasihttp: %v", result.Err())
 	}

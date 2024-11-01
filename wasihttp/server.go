@@ -1,9 +1,8 @@
 package wasihttp
 
 import (
+	"errors"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
 	incominghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/incoming-handler"
@@ -23,60 +22,105 @@ func init() {
 	incominghandler.Exports.Handle = handleIncomingRequest
 }
 
-func handleIncomingRequest(req types.IncomingRequest, res types.ResponseOutparam) {
+func handleIncomingRequest(req types.IncomingRequest, out types.ResponseOutparam) {
 	h := defaultHandler
 	if h == nil {
 		h = http.DefaultServeMux
 	}
-	w := http.ResponseWriter(nil)
-	r := incomingRequest(req)
-	h.ServeHTTP(w, r)
+	w, err := newResponseWriter(req, out)
+	if err != nil {
+		return // TODO: log error?
+	}
+	h.ServeHTTP(w, w.req)
+	w.finish()
 }
 
-func incomingRequest(req types.IncomingRequest) *http.Request {
-	r := &http.Request{
-		Method: method(req.Method()),
-		URL:    incomingURL(req),
-		// TODO: Proto, ProtoMajor, ProtoMinor
-		Header: header(req.Headers()),
-		Host:   optionZero(req.Authority()),
-	}
-	return r
+var _ http.ResponseWriter = &responseWriter{}
+
+type responseWriter struct {
+	out         types.ResponseOutparam
+	req         *http.Request
+	header      http.Header
+	wroteHeader bool
+	status      int // HTTP status code passed to WriteHeader
+
+	res    types.OutgoingResponse // valid after headers are sent
+	body   types.OutgoingBody     // valid after res.Body() is called
+	writer *bodyWriter            // valid after body.Stream() is called
+
+	finished bool
 }
 
-func optionZero[T any](o cm.Option[T]) T {
-	if o.None() {
-		var zero T
-		return zero
+func newResponseWriter(req types.IncomingRequest, out types.ResponseOutparam) (*responseWriter, error) {
+	r, err := incomingRequest(req)
+	w := &responseWriter{
+		out:    out,
+		req:    r,
+		header: make(http.Header),
 	}
-	return *o.Some()
+	if err != nil {
+		w.fatal(types.ErrorCodeHTTPProtocolError())
+	}
+	return w, err
 }
 
-func method(m types.Method) string {
-	if o := m.Other(); o != nil {
-		return strings.ToUpper(*o)
-	}
-	return strings.ToUpper(m.String())
+func (w *responseWriter) Header() http.Header {
+	// TODO: handle concurrent access to (or mutations of) w.header?
+	return w.header
 }
 
-func incomingURL(req types.IncomingRequest) *url.URL {
-	s := req.Scheme()
-	return &url.URL{
-		Scheme: scheme(s.Value()),
+func (w *responseWriter) Write(p []byte) (int, error) {
+	if w.finished {
+		return 0, errors.New("wasihttp: write after close")
 	}
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.writer.Write(p)
 }
 
-func scheme(s types.Scheme) string {
-	if o := s.Other(); o != nil {
-		return *o
+func (w *responseWriter) WriteHeader(code int) {
+	if w.finished || w.wroteHeader {
+		// TODO: improve logging
+		return
 	}
-	return s.String()
+
+	// TODO: handle 1xx informational headers?
+
+	w.wroteHeader = true
+	w.status = code
+
+	headers := toFields(w.header)
+	w.res = types.NewOutgoingResponse(headers)
+	w.res.SetStatusCode(types.StatusCode(code))
+
+	rbody := w.res.Body()
+	w.body = *rbody.OK() // the first call should always return OK
+	w.writer = newBodyWriter(w.body, func() http.Header {
+		return nil
+	})
+
+	// Consume the response-outparam and outgoing-response.
+	types.ResponseOutparamSet(w.out, cm.OK[outgoingResult](w.res))
 }
 
-func header(fields types.Fields) http.Header {
-	h := http.Header{}
-	for _, e := range fields.Entries().Slice() {
-		h.Add(string(e.F0), string(e.F1.Slice()))
+func (w *responseWriter) finish() error {
+	if w.finished {
+		return nil
 	}
-	return h
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	w.finished = true
+	return w.writer.finish()
+}
+
+type outgoingResult = cm.Result[types.ErrorCodeShape, types.OutgoingResponse, types.ErrorCode]
+
+// fatal sets an error code on the response, to allow the implementation
+// to determine how to respond with an HTTP error response.
+func (w *responseWriter) fatal(e types.ErrorCode) {
+	w.finished = true
+	types.ResponseOutparamSet(w.out, cm.Err[outgoingResult](e))
 }
