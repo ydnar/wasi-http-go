@@ -162,6 +162,8 @@ type bodyWriter struct {
 	finished bool
 }
 
+// newBodyWriter takes ownership of body, allowing it to be written to.
+// Call finish to send the HTTP trailers provided by the trailer callback.
 func newBodyWriter(body types.OutgoingBody, trailer func() http.Header) *bodyWriter {
 	return &bodyWriter{
 		body:    body,
@@ -198,7 +200,10 @@ func (w *bodyWriter) finish() error {
 	w.stream.Flush()
 	w.stream.ResourceDrop()
 
-	trailers := toTrailers(w.trailer())
+	var trailers cm.Option[types.Trailers]
+	if w.trailer != nil {
+		trailers = toTrailers(w.trailer())
+	}
 	finished := types.OutgoingBodyFinish(w.body, trailers)
 	if finished.IsErr() {
 		return errors.New(finished.Err().String())
