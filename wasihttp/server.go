@@ -2,9 +2,7 @@ package wasihttp
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/bytecodealliance/wasm-tools-go/cm"
 	incominghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/incoming-handler"
@@ -106,25 +104,16 @@ func (w *responseWriter) WriteHeader(code int) {
 	types.ResponseOutparamSet(w.out, cm.OK[outgoingResult](w.res))
 }
 
-func (w *responseWriter) finish() {
+func (w *responseWriter) finish() error {
 	if w.finished {
-		return
+		return nil
 	}
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
 
 	w.finished = true
-	w.writer.finish()
-
-	// TODO: extract trailers from http.ResponseWriter
-	var trailers cm.Option[types.Trailers]
-
-	result := types.OutgoingBodyFinish(w.body, trailers)
-	if result.IsErr() {
-		// TODO: improve this
-		fmt.Fprintf(os.Stderr, "wasihttp: outgoing-body-finish: %v", result.Err())
-	}
+	return w.writer.finish()
 }
 
 type outgoingResult = cm.Result[types.ErrorCodeShape, types.OutgoingResponse, types.ErrorCode]

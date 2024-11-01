@@ -45,18 +45,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// TODO: extract request trailers
 		return nil
 	})
-	defer w.finish()
 	if _, err := io.Copy(w, req.Body); err != nil {
 		return nil, fmt.Errorf("wasihttp: %v", err)
 	}
 	w.Flush()
-
-	// Finalize the request body
-	// TODO: complete the request trailers
-	finished := types.OutgoingBodyFinish(body, cm.None[types.Fields]())
-	if err := checkError(finished); err != nil {
-		return nil, err
-	}
+	w.finish()
 
 	// Wait for response
 	poll := incoming.Subscribe()

@@ -1,6 +1,7 @@
 package wasihttp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -196,6 +197,13 @@ func (w *bodyWriter) finish() error {
 	w.finished = true
 	w.stream.Flush()
 	w.stream.ResourceDrop()
+
+	trailers := toTrailers(w.trailer())
+	finished := types.OutgoingBodyFinish(w.body, trailers)
+	if finished.IsErr() {
+		return errors.New(finished.Err().String())
+	}
+
 	return nil
 }
 
@@ -257,4 +265,11 @@ func toFields(h http.Header) types.Fields {
 		fields.Set(types.FieldKey(k), cm.ToList(vals))
 	}
 	return fields
+}
+
+func toTrailers(h http.Header) cm.Option[types.Trailers] {
+	if h == nil || len(h) == 0 {
+		return cm.None[types.Trailers]()
+	}
+	return cm.Some(toFields(h))
 }
