@@ -2,7 +2,7 @@ module github.com/ydnar/wasi-http-go
 
 go 1.23.0
 
-require github.com/bytecodealliance/wasm-tools-go v0.3.0
+require github.com/bytecodealliance/wasm-tools-go v0.3.1
 
 require (
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -12,8 +12,7 @@ require (
 	github.com/regclient/regclient v0.7.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
-	github.com/urfave/cli/v3 v3.0.0-alpha9 // indirect
-	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	github.com/urfave/cli/v3 v3.0.0-alpha9.2 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 )
