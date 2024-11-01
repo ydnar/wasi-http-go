@@ -87,10 +87,3 @@ func requestPath(req *http.Request) cm.Option[string] {
 	}
 	return cm.Some(path)
 }
-
-func checkError[Shape, OK, Err any](result cm.Result[Shape, OK, Err]) error {
-	if result.IsErr() {
-		return fmt.Errorf("wasihttp: %v", result.Err())
-	}
-	return nil
-}
