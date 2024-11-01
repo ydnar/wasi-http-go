@@ -35,29 +35,27 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	scheme := toScheme(req.URL.Scheme)
 	outgoingRequest.SetScheme(cm.Some(scheme))
 
-	outgoingBody_ := outgoingRequest.Body()
-	outgoingBody := outgoingBody_.OK() // the first call should always return OK
+	outgoingBody, _, _ := outgoingRequest.Body().Result() // the first call should always return OK
 
 	// TODO: when are [options] used?
 	// [options]: https://github.com/WebAssembly/wasi-http/blob/main/wit/handler.wit#L38-L39
-	futureIncomingResponse_ := outgoinghandler.Handle(outgoingRequest, cm.None[types.RequestOptions]())
+	futureIncomingResponse, err, isErr := outgoinghandler.Handle(outgoingRequest, cm.None[types.RequestOptions]()).Result()
+	defer futureIncomingResponse.ResourceDrop()
 
-	if err := checkError(futureIncomingResponse_); err != nil {
+	if isErr {
 		// outgoing request is invalid or not allowed to be made
-		return nil, err
+		return nil, fmt.Errorf("wasihttp: %v", err)
 	}
 
 	toBody(&req.Body, outgoingBody)
 
 	// Finalize the request body
 	// TODO: complete the request trailers
-	finish := types.OutgoingBodyFinish(*outgoingBody, cm.None[types.Fields]())
-	if err := checkError(finish); err != nil {
-		return nil, err
+	_, err, isErr = types.OutgoingBodyFinish(outgoingBody, cm.None[types.Fields]()).Result()
+	if isErr {
+		return nil, fmt.Errorf("wasihttp: %v", err)
 	}
 
-	futureIncomingResponse := futureIncomingResponse_.OK()
-	defer futureIncomingResponse.ResourceDrop()
 	poll := futureIncomingResponse.Subscribe()
 	defer poll.ResourceDrop()
 	if !poll.Ready() {
@@ -68,13 +66,12 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("wasihttp: response is None after blocking")
 	}
 
-	incomingResponse_ := responseBody.Some().OK() // the first call should always return OK
-	if err := checkError(*incomingResponse_); err != nil {
-		// TODO: what do we do with the HTTP proxy error-code?
-		return nil, err
-	}
-	incomingResponse := incomingResponse_.OK()
+	incomingResponse, err, isErr := responseBody.Some().OK().Result() // the first call should always return OK
 	defer incomingResponse.ResourceDrop()
+	if isErr {
+		// TODO: what do we do with the HTTP proxy error-code?
+		return nil, fmt.Errorf("wasihttp: %v", err)
+	}
 
 	response := &http.Response{
 		Status:     http.StatusText(int(incomingResponse.Status())),
@@ -82,19 +79,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		Header:     FromHeaders(incomingResponse.Headers()),
 	}
 
-	ib := incomingResponse.Consume()
-	if err := checkError(ib); err != nil {
-		return nil, err
+	incomingBody, err_, isErr := incomingResponse.Consume().Result()
+	if isErr {
+		return nil, fmt.Errorf("wasihttp: %v", err_)
 	}
-	incomingBody := ib.OK()
 
 	response.Body = fromBody(incomingBody)
 	return response, nil
-}
-
-func checkError[Shape, Ok, Err any](result cm.Result[Shape, Ok, Err]) error {
-	if result.IsErr() {
-		return fmt.Errorf("wasihttp: %v", result.Err())
-	}
-	return nil
 }

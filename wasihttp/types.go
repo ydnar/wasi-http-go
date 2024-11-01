@@ -114,14 +114,13 @@ func toScheme(s string) types.Scheme {
 // toBody writes the io.ReadCloser to the wasi-http [types.toBody].
 //
 // [types.toBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L514-L540
-func toBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
+func toBody(body *io.ReadCloser, wasiBody types.OutgoingBody) error {
 	if body == nil || *body == nil {
 		return nil
 	}
 	defer (*body).Close()
 
-	stream_ := wasiBody.Write()
-	stream := stream_.OK() // the first call should always return OK
+	stream, _, _ := wasiBody.Write().Result() // the first call should always return OK
 	defer stream.ResourceDrop()
 	if _, err := io.Copy(&outStreamWriter{stream: stream}, *body); err != nil {
 		return fmt.Errorf("wasihttp: %v", err)
@@ -132,14 +131,13 @@ func toBody(body *io.ReadCloser, wasiBody *types.OutgoingBody) error {
 // fromBody reads the wasi-http [types.IncomingBody] to the io.ReadCloser.
 //
 // [types.IncomingBody]: https://github.com/WebAssembly/wasi-http/blob/v0.2.0/wit/types.wit#L397-L427
-func fromBody(body *types.IncomingBody) io.ReadCloser {
-	stream_ := body.Stream()
-	stream := stream_.OK() // the first call should always return OK
+func fromBody(body types.IncomingBody) io.ReadCloser {
+	stream, _, _ := body.Stream().Result() // the first call should always return OK
 	return &inputStreamReader{stream: stream, incomingBody: body}
 }
 
 type outStreamWriter struct {
-	stream *streams.OutputStream
+	stream streams.OutputStream
 }
 
 func (s *outStreamWriter) Write(p []byte) (n int, err error) {
@@ -151,24 +149,22 @@ func (s *outStreamWriter) Write(p []byte) (n int, err error) {
 }
 
 type inputStreamReader struct {
-	stream       *streams.InputStream
-	incomingBody *types.IncomingBody
+	stream       streams.InputStream
+	incomingBody types.IncomingBody
 }
 
-func (r *inputStreamReader) Read(p []byte) (n int, err error) {
+func (r *inputStreamReader) Read(p []byte) (int, error) {
 	poll := r.stream.Subscribe()
 	poll.Block()
 	poll.ResourceDrop()
 
-	readResult := r.stream.Read(uint64(len(p)))
-	if err := readResult.Err(); err != nil {
+	readList, err, isErr := r.stream.Read(uint64(len(p))).Result()
+	if isErr {
 		if err.Closed() {
 			return 0, io.EOF
 		}
 		return 0, fmt.Errorf("failed to read from InputStream %s", err.LastOperationFailed().ToDebugString())
 	}
-
-	readList := *readResult.OK()
 	copy(p, readList.Slice())
 	return int(readList.Len()), nil
 }
