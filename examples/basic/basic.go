@@ -21,7 +21,7 @@ func init() {
 
 	http.HandleFunc("/counter", func(w http.ResponseWriter, r *http.Request) {
 		n := <-c
-		w.Write([]byte(fmt.Sprintf("%d", n)))
+		fmt.Fprintf(w, "%d", n)
 	})
 
 	go func() {
