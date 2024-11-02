@@ -11,7 +11,13 @@ import (
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
 )
 
-var _ http.RoundTripper = &Transport{}
+func init() {
+	// Override the default net/http transport and client.
+	http.DefaultTransport = &Transport{}
+	if http.DefaultClient != nil {
+		http.DefaultClient.Transport = &Transport{} // TinyGo has custom implementation of net/http
+	}
+}
 
 type Transport struct{}
 

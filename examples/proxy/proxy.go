@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ydnar/wasi-http-go/wasihttp"
+	_ "github.com/ydnar/wasi-http-go/wasihttp"
 )
 
 func init() {
@@ -34,10 +34,7 @@ func init() {
 			log.Printf("proxied %s in %s\n", r2.URL.String(), dur.String())
 		}()
 
-		client := &http.Client{
-			Transport: &wasihttp.Transport{},
-		}
-		res, err := client.Do(r2)
+		res, err := http.DefaultClient.Do(r2)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "error: %v", err)
