@@ -1,3 +1,10 @@
+// This example implements a basic web server.
+//
+// To run: `tinygo run -target=wasip2-http.json ./examples/basic`
+// Test /: `curl -v 'http://0.0.0.0:8080/'`
+// Test /safe: `curl -v 'http://0.0.0.0:8080/safe'`
+// Test /counter: `curl -v 'http://0.0.0.0:8080/counter'`
+
 package main
 
 import (
