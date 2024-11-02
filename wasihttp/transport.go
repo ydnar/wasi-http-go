@@ -1,6 +1,7 @@
 package wasihttp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,16 +30,14 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// TODO: when are [options] used?
 	// [options]: https://github.com/WebAssembly/wasi-http/blob/main/wit/handler.wit#L38-L39
-	handled := outgoinghandler.Handle(r, cm.None[types.RequestOptions]())
-	if err := checkError(handled); err != nil {
+	incoming, err, isErr := outgoinghandler.Handle(r, cm.None[types.RequestOptions]()).Result()
+	if isErr {
 		// outgoing request is invalid or not allowed to be made
-		return nil, err
+		return nil, errors.New(err.String())
 	}
-	incoming := handled.OK()
 	defer incoming.ResourceDrop()
 
-	somebody := r.Body()
-	body := *somebody.OK() // the first call should always return OK
+	body, _, _ := r.Body().Result() // the first call should always return OK
 
 	// Write request body
 	w := newBodyWriter(body, func() http.Header {
@@ -58,18 +57,16 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	poll.ResourceDrop()
 
-	someResponse := incoming.Get()
-	if someResponse.None() {
+	future := incoming.Get()
+	if future.None() {
 		return nil, fmt.Errorf("wasihttp: future response is None after blocking")
 	}
-
-	responseResult := someResponse.Some().OK() // the first call should always return OK
-	if err := checkError(*responseResult); err != nil {
+	// TODO: figure out a better way to handle option<result<result<incoming-response, error-code>>>
+	response, err, isErr := future.Some().OK().Result() // the first call should always return OK
+	if isErr {
 		// TODO: what do we do with the HTTP proxy error-code?
-		return nil, err
+		return nil, errors.New(err.String())
 	}
-
-	response := *responseResult.OK()
 	defer response.ResourceDrop()
 
 	return incomingResponse(response)
@@ -89,11 +86,4 @@ func requestPath(req *http.Request) cm.Option[string] {
 		return cm.None[string]()
 	}
 	return cm.Some(path)
-}
-
-func checkError[Shape, OK, Err any](result cm.Result[Shape, OK, Err]) error {
-	if result.IsErr() {
-		return fmt.Errorf("wasihttp: %v", result.Err())
-	}
-	return nil
 }

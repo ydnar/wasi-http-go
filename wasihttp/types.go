@@ -22,12 +22,14 @@ func incomingRequest(req types.IncomingRequest) (*http.Request, error) {
 		Host:   req.Authority().Value(),
 	}
 
-	somebody := req.Consume()
-	if err := checkError(somebody); err != nil {
-		return nil, err
+	body, _, isErr := req.Consume().Result()
+	if isErr {
+		return nil, errors.New("error consuming wasi-http request")
 	}
 
-	r.Body = newBodyReader(*somebody.OK(), func(h http.Header) { r.Trailer = h })
+	r.Body = newBodyReader(body, func(h http.Header) {
+		r.Trailer = h
+	})
 
 	return r, nil
 }
@@ -62,12 +64,12 @@ func incomingResponse(res types.IncomingResponse) (*http.Response, error) {
 		Header:     fromFields(res.Headers()),
 	}
 
-	somebody := res.Consume()
-	if err := checkError(somebody); err != nil {
-		return nil, err
+	body, _, isErr := res.Consume().Result()
+	if isErr {
+		return nil, errors.New("error consuming wasi-http response")
 	}
 
-	r.Body = newBodyReader(*somebody.OK(), func(h http.Header) { r.Trailer = h })
+	r.Body = newBodyReader(body, func(h http.Header) { r.Trailer = h })
 
 	return r, nil
 }
@@ -95,8 +97,8 @@ func (r *bodyReader) Read(p []byte) (int, error) {
 	}
 
 	if r.stream == cm.ResourceNone {
-		result := r.body.Stream()
-		r.stream = *result.OK() // the first call should always return OK
+		// the first call should always return OK
+		r.stream, _, _ = r.body.Stream().Result()
 	}
 
 	// TODO: coordinate with runtime to block on multiple pollables.
@@ -104,8 +106,8 @@ func (r *bodyReader) Read(p []byte) (int, error) {
 	poll.Block()
 	poll.ResourceDrop()
 
-	readResult := r.stream.Read(uint64(len(p)))
-	if err := readResult.Err(); err != nil {
+	list, err, isErr := r.stream.Read(uint64(len(p))).Result()
+	if isErr {
 		if err.Closed() {
 			err2 := r.finish() // read trailers
 			if err2 != nil {
@@ -116,9 +118,8 @@ func (r *bodyReader) Read(p []byte) (int, error) {
 		return 0, fmt.Errorf("failed to read from InputStream %s", err.LastOperationFailed().ToDebugString())
 	}
 
-	readList := *readResult.OK()
-	copy(p, readList.Slice())
-	return int(readList.Len()), nil
+	copy(p, list.Slice())
+	return int(list.Len()), nil
 }
 
 func (r *bodyReader) Close() error {
@@ -132,17 +133,18 @@ func (r *bodyReader) finish() error {
 	r.finished = true
 	r.stream.ResourceDrop()
 
-	futureTrailers := types.IncomingBodyFinish(r.body)
-	defer futureTrailers.ResourceDrop()
-	p := futureTrailers.Subscribe()
+	future := types.IncomingBodyFinish(r.body)
+	defer future.ResourceDrop()
+	p := future.Subscribe()
 	p.Block()
 	p.ResourceDrop()
-	someTrailers := futureTrailers.Get()
-	trailersResult := someTrailers.Some().OK() // the first call should always return OK
-	if err := checkError(*trailersResult); err != nil {
-		return err
+	trailersReady := future.Get()
+	// TODO: figure out a better way to handle option<result<result<option<trailers>, error-code>>>
+	someTrailers, err, isErr := trailersReady.Some().OK().Result()
+	if isErr {
+		return errors.New(err.String())
 	}
-	trailers := trailersResult.OK().Some()
+	trailers := someTrailers.Some()
 	if trailers != nil {
 		r.trailer(fromFields(*trailers))
 	}
@@ -174,8 +176,7 @@ func newBodyWriter(body types.OutgoingBody, trailer func() http.Header) *bodyWri
 // TODO: buffer writes
 func (w *bodyWriter) Write(p []byte) (n int, err error) {
 	if w.stream == cm.ResourceNone {
-		res := w.body.Write()
-		w.stream = *res.OK()
+		w.stream, _, _ = w.body.Write().Result()
 	}
 	res := w.stream.BlockingWriteAndFlush(cm.ToList(p))
 	if res.IsErr() {

@@ -94,8 +94,7 @@ func (w *responseWriter) WriteHeader(code int) {
 	w.res = types.NewOutgoingResponse(headers)
 	w.res.SetStatusCode(types.StatusCode(code))
 
-	rbody := w.res.Body()
-	w.body = *rbody.OK() // the first call should always return OK
+	w.body, _, _ = w.res.Body().Result() // the first call should always return OK
 	w.writer = newBodyWriter(w.body, func() http.Header {
 		return nil
 	})
