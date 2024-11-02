@@ -26,6 +26,10 @@ func init() {
 		w.Write([]byte("Welcome to /safe\n"))
 	})
 
+	http.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
+		// do nothing, force default response handling
+	})
+
 	http.HandleFunc("/counter", func(w http.ResponseWriter, r *http.Request) {
 		n := <-c
 		fmt.Fprintf(w, "%d", n)
