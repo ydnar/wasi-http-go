@@ -190,7 +190,9 @@ func (w *bodyWriter) Flush() {
 	if w.finished {
 		return
 	}
-	w.stream.Flush()
+	if w.stream != cm.ResourceNone {
+		w.stream.Flush()
+	}
 }
 
 func (w *bodyWriter) finish() error {
@@ -198,8 +200,10 @@ func (w *bodyWriter) finish() error {
 		return nil
 	}
 	w.finished = true
-	w.stream.Flush()
-	w.stream.ResourceDrop()
+	if w.stream != cm.ResourceNone {
+		w.stream.Flush()
+		w.stream.ResourceDrop()
+	}
 
 	var trailers cm.Option[types.Trailers]
 	if w.trailer != nil {
