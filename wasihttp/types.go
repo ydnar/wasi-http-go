@@ -131,7 +131,9 @@ func (r *bodyReader) finish() error {
 		return nil
 	}
 	r.finished = true
-	r.stream.ResourceDrop()
+	if r.stream != cm.ResourceNone {
+		r.stream.ResourceDrop()
+	}
 
 	future := types.IncomingBodyFinish(r.body)
 	defer future.ResourceDrop()
