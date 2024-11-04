@@ -12,7 +12,9 @@ import (
 var defaultHandler http.Handler
 
 // Serve sets the [http.Handler] that incoming [wasi-http] requests are routed to.
-// If not set, [http.DefaultServeMux] is used.
+// By default, requests are routed to [http.DefaultServeMux].
+//
+// [wasi-http]: https://github.com/webassembly/wasi-http
 func Serve(h http.Handler) {
 	defaultHandler = h
 }
