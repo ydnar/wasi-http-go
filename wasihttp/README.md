@@ -1,0 +1,1 @@
+Package `wasihttp` implements the [`wasi:http/proxy`](https://github.com/WebAssembly/wasi-http/blob/v0.2.0/proxy.md) version 0.2.0 for Go using standard [`net/http`](https://pkg.go.dev/net/http) interfaces.
