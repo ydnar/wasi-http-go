@@ -1,3 +1,10 @@
+// This example implements a basic web server.
+//
+// To run: `tinygo run -target=wasip2-http.json ./examples/basic`
+// Test /: `curl -v 'http://0.0.0.0:8080/'`
+// Test /safe: `curl -v 'http://0.0.0.0:8080/safe'`
+// Test /counter: `curl -v 'http://0.0.0.0:8080/counter'`
+
 package main
 
 import (
@@ -19,9 +26,13 @@ func init() {
 		w.Write([]byte("Welcome to /safe\n"))
 	})
 
+	http.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
+		// do nothing, force default response handling
+	})
+
 	http.HandleFunc("/counter", func(w http.ResponseWriter, r *http.Request) {
 		n := <-c
-		w.Write([]byte(fmt.Sprintf("%d", n)))
+		fmt.Fprintf(w, "%d", n)
 	})
 
 	go func() {

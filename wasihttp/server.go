@@ -108,14 +108,16 @@ func (w *responseWriter) finish() error {
 		return nil
 	}
 	if !w.wroteHeader {
-		w.WriteHeader(http.StatusOK)
+		// w.WriteHeader(http.StatusOK)
+		// If caller code did not set headers, status, or body, then respond with an error
+		// and let the server implementation handle the correct response.
+		w.fatal(types.ErrorCodeHTTPResponseIncomplete())
+		return nil
 	}
 
 	w.finished = true
 	return w.writer.finish()
 }
-
-type outgoingResult = cm.Result[types.ErrorCodeShape, types.OutgoingResponse, types.ErrorCode]
 
 // fatal sets an error code on the response, to allow the implementation
 // to determine how to respond with an HTTP error response.
@@ -123,3 +125,5 @@ func (w *responseWriter) fatal(e types.ErrorCode) {
 	w.finished = true
 	types.ResponseOutparamSet(w.out, cm.Err[outgoingResult](e))
 }
+
+type outgoingResult = cm.Result[types.ErrorCodeShape, types.OutgoingResponse, types.ErrorCode]

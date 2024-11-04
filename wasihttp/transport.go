@@ -11,7 +11,13 @@ import (
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
 )
 
-var _ http.RoundTripper = &Transport{}
+func init() {
+	// Override the default net/http transport and client.
+	http.DefaultTransport = &Transport{}
+	if http.DefaultClient != nil {
+		http.DefaultClient.Transport = &Transport{} // TinyGo has custom implementation of net/http
+	}
+}
 
 type Transport struct{}
 
@@ -28,6 +34,8 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	r.SetPathWithQuery(requestPath(req))
 	r.SetScheme(cm.Some(toScheme(req.URL.Scheme))) // TODO: when should this be cm.None?
 
+	body, _, _ := r.Body().Result() // the first call should always return OK
+
 	// TODO: when are [options] used?
 	// [options]: https://github.com/WebAssembly/wasi-http/blob/main/wit/handler.wit#L38-L39
 	incoming, err, isErr := outgoinghandler.Handle(r, cm.None[types.RequestOptions]()).Result()
@@ -37,8 +45,6 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	defer incoming.ResourceDrop()
 
-	body, _, _ := r.Body().Result() // the first call should always return OK
-
 	// Write request body
 	w := newBodyWriter(body, func() http.Header {
 		// TODO: extract request trailers
@@ -47,7 +53,6 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if _, err := io.Copy(w, req.Body); err != nil {
 		return nil, fmt.Errorf("wasihttp: %v", err)
 	}
-	w.Flush()
 	w.finish()
 
 	// Wait for response
@@ -67,7 +72,8 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// TODO: what do we do with the HTTP proxy error-code?
 		return nil, errors.New(err.String())
 	}
-	defer response.ResourceDrop()
+	// TODO: when should an incoming-response be dropped?
+	// defer response.ResourceDrop()
 
 	return incomingResponse(response)
 }
