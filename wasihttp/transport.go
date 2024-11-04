@@ -19,11 +19,12 @@ func init() {
 	}
 }
 
-type Transport struct{}
-
-// RoundTrip executes a single HTTP transaction, using [wasi-http] APIs.
+// Transport implements [http.RoundTripper] using [wasi-http] APIs.
 //
 // [wasi-http]: https://github.com/webassembly/wasi-http
+type Transport struct{}
+
+// RoundTrip executes a single HTTP transaction.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	defer req.Body.Close()
 
