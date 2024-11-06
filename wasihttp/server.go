@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	incominghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/incoming-handler"
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
+	"go.bytecodealliance.org/cm"
 )
 
 var defaultHandler http.Handler

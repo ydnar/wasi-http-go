@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	outgoinghandler "github.com/ydnar/wasi-http-go/internal/wasi/http/outgoing-handler"
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
+	"go.bytecodealliance.org/cm"
 )
 
 func init() {

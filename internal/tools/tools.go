@@ -5,7 +5,7 @@
 package tools
 
 import (
-	_ "github.com/bytecodealliance/wasm-tools-go/cmd/wit-bindgen-go"
+	_ "go.bytecodealliance.org/cmd/wit-bindgen-go"
 )
 
-//go:generate go install github.com/bytecodealliance/wasm-tools-go/cmd/wit-bindgen-go
+//go:generate go install go.bytecodealliance.org/cmd/wit-bindgen-go
