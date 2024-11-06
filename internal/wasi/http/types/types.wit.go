@@ -8,11 +8,11 @@
 package types
 
 import (
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	monotonicclock "github.com/ydnar/wasi-http-go/internal/wasi/clocks/monotonic-clock"
 	ioerror "github.com/ydnar/wasi-http-go/internal/wasi/io/error"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/poll"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
+	"go.bytecodealliance.org/cm"
 )
 
 // Duration represents the type alias "wasi:http/types@0.2.0#duration".

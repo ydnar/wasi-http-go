@@ -4,8 +4,8 @@
 package preopens
 
 import (
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	"github.com/ydnar/wasi-http-go/internal/wasi/filesystem/types"
+	"go.bytecodealliance.org/cm"
 )
 
 // Descriptor represents the imported type alias "wasi:filesystem/preopens@0.2.0#descriptor".

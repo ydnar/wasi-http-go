@@ -4,8 +4,8 @@
 package stdin
 
 import (
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
+	"go.bytecodealliance.org/cm"
 )
 
 // InputStream represents the imported type alias "wasi:cli/stdin@0.2.0#input-stream".

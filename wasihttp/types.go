@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bytecodealliance/wasm-tools-go/cm"
 	"github.com/ydnar/wasi-http-go/internal/wasi/http/types"
 	"github.com/ydnar/wasi-http-go/internal/wasi/io/streams"
+	"go.bytecodealliance.org/cm"
 )
 
 func incomingRequest(req types.IncomingRequest) (*http.Request, error) {

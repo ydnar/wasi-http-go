@@ -4,4 +4,4 @@ tools:
 
 .PHONY: go-bindings
 go-bindings:
-	go run github.com/bytecodealliance/wasm-tools-go/cmd/wit-bindgen-go generate -o internal/ ./wit
+	go run go.bytecodealliance.org/cmd/wit-bindgen-go generate -o internal/ ./wit
