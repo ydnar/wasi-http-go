@@ -1,5 +1,3 @@
 (module
-  (type (;0;) (func))
-  (func (;0;) (type 0))
-  (@custom "linking" (after code) "\02\08-\01\00\00\00(__component_type_object_force_link_proxy")
+  (@custom "linking" (after code) "\02")
 )
