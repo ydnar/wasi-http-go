@@ -11,6 +11,8 @@ import (
 	"go.bytecodealliance.org/cm"
 )
 
+func foo() {}
+
 func init() {
 	// Override the default net/http transport and client.
 	http.DefaultTransport = &Transport{}

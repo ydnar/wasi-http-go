@@ -6,6 +6,6 @@ world proxy {
 
 	/// The Go standard library requires interfaces missing from `wasi:http/proxy`:
 	/// `wasi:cli/environment` and `wasi:filesystem/imports`.
-	include wasi:filesystem/imports@0.2.0;
-	import wasi:cli/environment@0.2.0;
+	// include wasi:filesystem/imports@0.2.0;
+	// import wasi:cli/environment@0.2.0;
 }
