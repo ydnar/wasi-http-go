@@ -1,3 +1,1 @@
-(module
-  (@custom "linking" (after code) "\02")
-)
+(module (@custom "linking" "\02"))
