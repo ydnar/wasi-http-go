@@ -61,6 +61,11 @@ jobs:
         with:
           version: ${{ env.wasmtime-version }}
 
+      - name: Set up wasm-tools
+        uses: bytecodealliance/actions/wasm-tools/setup@v1
+        with:
+          version: ${{ env.wasm-tools-version }}
+
       - name: Run Go tests
         run: go test -v ./...
 
