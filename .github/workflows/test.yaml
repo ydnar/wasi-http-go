@@ -61,6 +61,11 @@ jobs:
         with:
           version: ${{ env.wasmtime-version }}
 
+      - name: Set up wasm-tools
+        uses: bytecodealliance/actions/wasm-tools/setup@v1
+        with:
+          version: ${{ env.wasm-tools-version }}
+
       - name: Run Go tests
         run: go test -v ./...
 
@@ -74,6 +79,9 @@ jobs:
 
       - name: Test with TinyGo
         run: tinygo test -v ./...
+
+      - name: Test roundtrip example
+        run: ./scripts/test-roundtrip.sh
 
       - name: Verify repo is unchanged
         run: git diff --exit-code HEAD

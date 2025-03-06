@@ -26,7 +26,10 @@ type Transport struct{}
 
 // RoundTrip executes a single HTTP transaction.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	defer req.Body.Close()
+	// Only close the body if it's not nil
+	if req.Body != nil {
+		defer req.Body.Close()
+	}
 
 	// TODO: wrap this into a helper func outgoingRequest?
 	r := types.NewOutgoingRequest(toFields(req.Header))
@@ -51,8 +54,12 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// TODO: extract request trailers
 		return nil
 	})
-	if _, err := io.Copy(w, req.Body); err != nil {
-		return nil, fmt.Errorf("wasihttp: %v", err)
+
+	// Only copy from req.Body if it's not nil
+	if req.Body != nil {
+		if _, err := io.Copy(w, req.Body); err != nil {
+			return nil, fmt.Errorf("wasihttp: %v", err)
+		}
 	}
 	w.finish()
 

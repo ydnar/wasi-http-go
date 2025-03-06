@@ -273,13 +273,13 @@ func (self OutputStream) BlockingSplice(src InputStream, len_ uint64) (result cm
 //
 //	let pollable = this.subscribe();
 //	while !contents.is_empty() {
-//	// Wait for the stream to become writable
-//	pollable.block();
-//	let Ok(n) = this.check-write(); // eliding error handling
-//	let len = min(n, contents.len());
-//	let (chunk, rest) = contents.split_at(len);
-//	this.write(chunk  );            // eliding error handling
-//	contents = rest;
+//	    // Wait for the stream to become writable
+//	    pollable.block();
+//	    let Ok(n) = this.check-write(); // eliding error handling
+//	    let len = min(n, contents.len());
+//	    let (chunk, rest) = contents.split_at(len);
+//	    this.write(chunk  );            // eliding error handling
+//	    contents = rest;
 //	}
 //	this.flush();
 //	// Wait for completion of `flush`
@@ -309,12 +309,12 @@ func (self OutputStream) BlockingWriteAndFlush(contents cm.List[uint8]) (result 
 //
 //	let pollable = this.subscribe();
 //	while num_zeroes != 0 {
-//	// Wait for the stream to become writable
-//	pollable.block();
-//	let Ok(n) = this.check-write(); // eliding error handling
-//	let len = min(n, num_zeroes);
-//	this.write-zeroes(len);         // eliding error handling
-//	num_zeroes -= len;
+//	    // Wait for the stream to become writable
+//	    pollable.block();
+//	    let Ok(n) = this.check-write(); // eliding error handling
+//	    let len = min(n, num_zeroes);
+//	    this.write-zeroes(len);         // eliding error handling
+//	    num_zeroes -= len;
 //	}
 //	this.flush();
 //	// Wait for completion of `flush`
