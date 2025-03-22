@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  wasm-tools-version: "1.219.1"
+  wasm-tools-version: "1.226.0"
   wasmtime-version: "26.0.0"
 
 jobs:
@@ -35,8 +35,11 @@ jobs:
     timeout-minutes: 5
     strategy:
       matrix:
-        go-version: ["1.23"]
-        tinygo-version: ["0.34.0"]
+        go-version: ["1.23", "1.24"]
+        tinygo-version: ["0.35.0", "0.36.0", "0.37.0"]
+        exclude:
+          - go-version: "1.24"
+            tinygo-version: "0.35.0"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
