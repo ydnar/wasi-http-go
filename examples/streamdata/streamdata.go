@@ -18,16 +18,19 @@ import (
 //go:embed bigdata_10kb.data
 var bigdata []byte
 
-func printResponse(r *http.Response) error {
+func printResponse(r *http.Response, printBody bool) error {
 	fmt.Printf("Status: %d\n", r.StatusCode)
 	for k, v := range r.Header {
 		fmt.Printf("%s: %s\n", k, v[0])
 	}
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return err
+	if r.Body != nil && printBody {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Body: \n%s\n", body)
 	}
-	fmt.Printf("Body: \n%s\n", body)
+
 	return nil
 }
 
@@ -35,20 +38,21 @@ func main() {
 	client := &http.Client{
 		Transport: &wasihttp.Transport{},
 	}
-	req, err := http.NewRequest("POST", "https://postman-echo/post", bytes.NewReader(bigdata))
+	req, err := http.NewRequest(http.MethodPost, "https://postman-echo.com/post", bytes.NewReader(bigdata))
 	if err != nil {
 		panic(err.Error())
 	}
 	if req == nil {
 		panic("Nil request!")
 	}
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bigdata)))
 	res, err := client.Do(req)
 	if err != nil {
 		panic(err.Error())
 	}
 	defer res.Body.Close()
 
-	err = printResponse(res)
+	err = printResponse(res, false)
 	if err != nil {
 		panic(err.Error())
 	}

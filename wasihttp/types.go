@@ -293,3 +293,21 @@ func toTrailers(h http.Header) cm.Option[types.Trailers] {
 	}
 	return cm.Some(toFields(h))
 }
+
+const chunkSize = 4 * 1024 // 4KB
+
+// chunkReader wraps an io.Reader and provides a reader that returns data in chunks.
+type chunkReader struct {
+	src io.Reader
+}
+
+func newChunkReader(src io.Reader) *chunkReader {
+	return &chunkReader{src: src}
+}
+
+func (cr *chunkReader) Read(p []byte) (n int, err error) {
+	if len(p) > chunkSize {
+		p = p[:chunkSize]
+	}
+	return cr.src.Read(p)
+}

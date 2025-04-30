@@ -57,7 +57,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Only copy from req.Body if it's not nil
 	if req.Body != nil {
-		if _, err := io.Copy(w, req.Body); err != nil {
+		// Restrict to sending 4096 bytes chunks as per spec
+		// https://github.com/WebAssembly/wasi-http/blob/main/wit/deps/io/streams.wit#L154
+		chunkedReader := newChunkReader(req.Body)
+		if _, err := io.Copy(w, chunkedReader); err != nil {
 			return nil, fmt.Errorf("wasihttp: %v", err)
 		}
 	}
