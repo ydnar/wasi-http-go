@@ -182,7 +182,15 @@ func (w *bodyWriter) Write(p []byte) (n int, err error) {
 	}
 	res := w.stream.BlockingWriteAndFlush(cm.ToList(p))
 	if res.IsErr() {
-		return 0, fmt.Errorf("wasihttp: %v", res.Err())
+		// The stream can be closed as soon as the planned "Content-Length" data
+		// has been flushed on the stream. But in wasmtime, after each flush we
+		// check if we can write to the stream. This can sometimes throw "closed"
+		// stream error.
+		//
+		// Refer to https://github.com/WebAssembly/wasi-io/issues/109 for more details.
+		if !res.Err().Closed() {
+			return 0, fmt.Errorf("wasihttp: %v", res.Err())
+		}
 	}
 	return len(p), nil
 }
