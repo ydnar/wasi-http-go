@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	go.bytecodealliance.org v0.6.2
-	go.bytecodealliance.org/cm v0.2.2
+	go.bytecodealliance.org/cm v0.3.0
 )
 
 require (

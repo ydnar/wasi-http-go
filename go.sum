@@ -31,8 +31,8 @@ github.com/urfave/cli/v3 v3.0.0-beta1 h1:6DTaaUarcM0wX7qj5Hcvs+5Dm3dyUTBbEwIWAjc
 github.com/urfave/cli/v3 v3.0.0-beta1/go.mod h1:FnIeEMYu+ko8zP1F9Ypr3xkZMIDqW3DR92yUtY39q1Y=
 go.bytecodealliance.org v0.6.2 h1:Jy4u5DVmSkXgsnwojBhJ+AD/YsJsR3VzVnxF0xRCqTQ=
 go.bytecodealliance.org v0.6.2/go.mod h1:gqjTJm0y9NSksG4py/lSjIQ/SNuIlOQ+hCIEPQwtJgA=
-go.bytecodealliance.org/cm v0.2.2 h1:M9iHS6qs884mbQbIjtLX1OifgyPG9DuMs2iwz8G4WQA=
-go.bytecodealliance.org/cm v0.2.2/go.mod h1:JD5vtVNZv7sBoQQkvBvAAVKJPhR/bqBH7yYXTItMfZI=
+go.bytecodealliance.org/cm v0.3.0 h1:VhV+4vjZPUGCozCg9+up+FNL3YU6XR+XKghk7kQ0vFc=
+go.bytecodealliance.org/cm v0.3.0/go.mod h1:JD5vtVNZv7sBoQQkvBvAAVKJPhR/bqBH7yYXTItMfZI=
 golang.org/x/mod v0.23.0 h1:Zb7khfcRGKk+kqfxFaP5tZqCnDZMjC5VtUBs87Hr6QM=
 golang.org/x/mod v0.23.0/go.mod h1:6SkKJ3Xj0I0BrPOZoBy3bdMptDDU9oJrpohJ3eWZ1fY=
 golang.org/x/sync v0.11.0 h1:GGz8+XQP4FvTTrjZPzNKTMFtSXH80RAzG+5ghFPgK9w=
