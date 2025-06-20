@@ -15,14 +15,14 @@ if ! echo "$output" | grep -q "Status: 200" || ! echo "$output" | grep -q "https
 fi
 
 # Verify POST request worked
-if ! echo "$output" | grep -q '"foo": "bar"'; then
+if ! echo "$output" | grep -q '"foo":"bar"'; then
 	echo "ERROR: POST request verification failed"
 	echo "$output"
 	exit 1
 fi
 
 # Verify PUT request worked
-if ! echo "$output" | grep -q '"baz": "blah"'; then
+if ! echo "$output" | grep -q '"baz":"blah"'; then
 	echo "ERROR: PUT request verification failed"
 	echo "$output"
 	exit 1

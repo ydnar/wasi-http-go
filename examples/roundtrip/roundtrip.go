@@ -60,7 +60,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	req, err = http.NewRequest("PUT", "http://postman-echo.com/put", bytes.NewReader([]byte("{\"baz\": \"blah\"}")))
+	req, err = http.NewRequest("PUT", "https://postman-echo.com/put", bytes.NewReader([]byte("{\"baz\": \"blah\"}")))
 	if err != nil {
 		panic(err.Error())
 	}
