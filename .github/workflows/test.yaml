@@ -86,5 +86,8 @@ jobs:
       - name: Test roundtrip example
         run: ./scripts/test-roundtrip.sh
 
+      - name: Test streamdata example
+        run: ./scripts/test-streamdata.sh
+
       - name: Verify repo is unchanged
         run: git diff --exit-code HEAD
