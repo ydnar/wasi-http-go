@@ -71,7 +71,7 @@ const (
 	ShutdownTypeBoth
 )
 
-var stringsShutdownType = [3]string{
+var _ShutdownTypeStrings = [3]string{
 	"receive",
 	"send",
 	"both",
@@ -79,8 +79,21 @@ var stringsShutdownType = [3]string{
 
 // String implements [fmt.Stringer], returning the enum case name of e.
 func (e ShutdownType) String() string {
-	return stringsShutdownType[e]
+	return _ShutdownTypeStrings[e]
 }
+
+// MarshalText implements [encoding.TextMarshaler].
+func (e ShutdownType) MarshalText() ([]byte, error) {
+	return []byte(e.String()), nil
+}
+
+// UnmarshalText implements [encoding.TextUnmarshaler], unmarshaling into an enum
+// case. Returns an error if the supplied text is not one of the enum cases.
+func (e *ShutdownType) UnmarshalText(text []byte) error {
+	return _ShutdownTypeUnmarshalCase(e, text)
+}
+
+var _ShutdownTypeUnmarshalCase = cm.CaseUnmarshaler[ShutdownType](_ShutdownTypeStrings[:])
 
 // TCPSocket represents the imported resource "wasi:sockets/tcp@0.2.0#tcp-socket".
 //
@@ -285,7 +298,7 @@ func (self TCPSocket) KeepAliveCount() (result cm.Result[uint32, uint32, ErrorCo
 //	keep-alive-enabled: func() -> result<bool, error-code>
 //
 //go:nosplit
-func (self TCPSocket) KeepAliveEnabled() (result cm.Result[bool, bool, ErrorCode]) {
+func (self TCPSocket) KeepAliveEnabled() (result cm.Result[ErrorCode, bool, ErrorCode]) {
 	self0 := cm.Reinterpret[uint32](self)
 	wasmimport_TCPSocketKeepAliveEnabled((uint32)(self0), &result)
 	return
